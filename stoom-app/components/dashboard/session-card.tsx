@@ -1,7 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Users, ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 
 interface SessionCardProps {
   id: string;

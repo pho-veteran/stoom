@@ -3,17 +3,51 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { mockMessages } from "@/lib/mock-data";
 import { MessageSquare, FileText, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { ChatMessage } from "@/hooks/use-chat";
 
 interface ChatNotesPanelProps {
   onClose: () => void;
+  messages?: ChatMessage[];
+  onSendMessage?: (message: string) => Promise<void>;
 }
 
-export function ChatNotesPanel({ onClose }: ChatNotesPanelProps) {
+export function ChatNotesPanel({
+  onClose,
+  messages = [],
+  onSendMessage,
+}: ChatNotesPanelProps) {
   const [newMessage, setNewMessage] = useState("");
   const [activeTab, setActiveTab] = useState("chat");
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !onSendMessage || isSending) return;
+
+    setIsSending(true);
+    try {
+      await onSendMessage(newMessage.trim());
+      setNewMessage("");
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   return (
     <div className="flex h-full w-full flex-col border-l border-border bg-card">
@@ -32,8 +66,8 @@ export function ChatNotesPanel({ onClose }: ChatNotesPanelProps) {
       </div>
 
       {/* Tabs */}
-      <Tabs 
-        value={activeTab} 
+      <Tabs
+        value={activeTab}
         onValueChange={setActiveTab}
         className="flex flex-1 flex-col overflow-hidden"
       >
@@ -53,17 +87,28 @@ export function ChatNotesPanel({ onClose }: ChatNotesPanelProps) {
         {/* Chat Tab */}
         <TabsContent value="chat" className="flex flex-1 flex-col overflow-hidden mt-0">
           <div className="flex-1 space-y-2 overflow-y-auto p-4">
-            {mockMessages.map((message) => (
-              <div key={message.id} className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3">
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="text-sm font-semibold">{message.userName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-                <p className="text-sm">{message.message}</p>
+            {messages.length === 0 ? (
+              <div className="text-center py-8">
+                <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-2" strokeWidth={1.5} />
+                <p className="text-sm text-muted-foreground">No messages yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Start the conversation!
+                </p>
               </div>
-            ))}
+            ) : (
+              messages.map((message) => (
+                <div key={message.id} className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="text-sm font-semibold">{message.senderName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(message.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
           </div>
           <div className="border-t border-border p-4">
             <div className="flex gap-2">
@@ -71,15 +116,16 @@ export function ChatNotesPanel({ onClose }: ChatNotesPanelProps) {
                 placeholder="Type a message..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newMessage.trim()) {
-                    setNewMessage("");
-                  }
-                }}
+                onKeyDown={handleKeyDown}
                 className="h-12 text-base"
+                disabled={isSending}
               />
-              <Button onClick={() => setNewMessage("")} disabled={!newMessage.trim()} className="h-12">
-                Send
+              <Button
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || isSending}
+                className="h-12"
+              >
+                {isSending ? "..." : "Send"}
               </Button>
             </div>
           </div>
@@ -102,4 +148,3 @@ export function ChatNotesPanel({ onClose }: ChatNotesPanelProps) {
     </div>
   );
 }
-

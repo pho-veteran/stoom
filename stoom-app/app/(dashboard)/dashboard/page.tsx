@@ -17,7 +17,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Hash, Video, Settings, Mic, Video as VideoIcon, Lock, Home, Video as VideoIcon2 } from "lucide-react";
+import { Plus, Hash, Video, Settings, Lock, Home, Video as VideoIcon2 } from "lucide-react";
+// Note: Lock is still used in create meeting modal
 import { useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
@@ -33,10 +34,10 @@ export default function DashboardPage() {
   const [meetingTitle, setMeetingTitle] = useState("");
   
   // Room settings
-  const [muteOnJoin, setMuteOnJoin] = useState(false);
-  const [videoOffOnJoin, setVideoOffOnJoin] = useState(false);
   const [requirePassword, setRequirePassword] = useState(false);
   const [roomPassword, setRoomPassword] = useState("");
+  
+
 
   const handleJoinRoom = () => {
     if (roomCode.trim()) {
@@ -45,13 +46,39 @@ export default function DashboardPage() {
     }
   };
 
-  const handleCreateMeeting = () => {
-    // Generate a random room ID
-    const roomId = Math.random().toString(36).substring(2, 9);
-    router.push(`/room/${roomId}`);
-    setIsNewMeetingDialogOpen(false);
-    // Reset form
-    setMeetingTitle("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreateMeeting = async () => {
+    if (!meetingTitle.trim()) return;
+    
+    setIsCreating(true);
+    try {
+      const response = await fetch("/api/room/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: meetingTitle,
+          password: requirePassword ? roomPassword : null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create room");
+      }
+
+      const data = await response.json();
+      router.push(`/room/${data.room.code}`);
+      setIsNewMeetingDialogOpen(false);
+      // Reset form
+      setMeetingTitle("");
+      setRequirePassword(false);
+      setRoomPassword("");
+    } catch (error) {
+      console.error("Error creating meeting:", error);
+      alert("Failed to create meeting. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -119,20 +146,26 @@ export default function DashboardPage() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
-                      <Input
-                        placeholder="Enter room code"
-                        value={roomCode}
-                        onChange={(e) => setRoomCode(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && roomCode.trim()) {
-                            handleJoinRoom();
-                          }
-                        }}
-                        className="h-11"
-                        autoFocus
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="room-code" className="text-sm font-medium">
+                          Room Code
+                        </Label>
+                        <Input
+                          id="room-code"
+                          placeholder="Enter room code"
+                          value={roomCode}
+                          onChange={(e) => setRoomCode(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && roomCode.trim()) {
+                              handleJoinRoom();
+                            }
+                          }}
+                          className="h-11"
+                          autoFocus
+                        />
+                      </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="gap-3">
                       <Button
                         variant="outline"
                         onClick={() => setIsJoinDialogOpen(false)}
@@ -197,36 +230,6 @@ export default function DashboardPage() {
                         <div className="space-y-4">
                           <div className="flex items-center space-x-2">
                             <Checkbox
-                              id="mute-on-join"
-                              checked={muteOnJoin}
-                              onCheckedChange={(checked) => setMuteOnJoin(checked === true)}
-                            />
-                            <Label
-                              htmlFor="mute-on-join"
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
-                            >
-                              <Mic className="h-4 w-4" strokeWidth={1.5} />
-                              Mute microphone on join
-                            </Label>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="video-off"
-                              checked={videoOffOnJoin}
-                              onCheckedChange={(checked) => setVideoOffOnJoin(checked === true)}
-                            />
-                            <Label
-                              htmlFor="video-off"
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
-                            >
-                              <VideoIcon className="h-4 w-4" strokeWidth={1.5} />
-                              Turn off camera on join
-                            </Label>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
                               id="require-password"
                               checked={requirePassword}
                               onCheckedChange={(checked) => setRequirePassword(checked === true)}
@@ -255,20 +258,21 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="gap-3">
                       <Button
                         variant="outline"
                         onClick={() => setIsNewMeetingDialogOpen(false)}
+                        disabled={isCreating}
                       >
                         Cancel
                       </Button>
                       <Button
                         onClick={handleCreateMeeting}
-                        disabled={!meetingTitle.trim()}
+                        disabled={!meetingTitle.trim() || isCreating}
                         className="bg-violet-600 hover:bg-violet-700 text-white"
                       >
                         <Video className="mr-2 h-4 w-4" strokeWidth={2} />
-                        Create Meeting
+                        {isCreating ? "Creating..." : "Create Meeting"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>

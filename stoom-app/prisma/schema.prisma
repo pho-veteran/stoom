@@ -1,15 +1,128 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../app/generated/prisma"
 }
 
 datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MODEL
+// Synced with Clerk authentication
+// ============================================
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkId   String   @unique // Clerk user ID
+  email     String   @unique
+  name      String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  ownedRooms    Room[]            @relation("RoomOwner")
+  participants  RoomParticipant[]
+  chatMessages  ChatMessage[]
+
+  @@map("users")
+}
+
+// ============================================
+// ROOM MODEL
+// Represents a meeting room
+// ============================================
+model Room {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  code        String     @unique // 6-character room code for joining
+  name        String
+  description String?
+  password    String?    // Optional room password (hashed)
+  isActive    Boolean    @default(true)
+  status      RoomStatus @default(WAITING)
+  
+  // Settings
+  maxParticipants Int     @default(50)
+  allowChat       Boolean @default(true)
+  allowScreenShare Boolean @default(true)
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  startedAt   DateTime? // When the meeting actually started
+  endedAt     DateTime? // When the meeting ended
+
+  // Owner relation
+  ownerId String @db.ObjectId
+  owner   User   @relation("RoomOwner", fields: [ownerId], references: [id])
+
+  // Relations
+  participants RoomParticipant[]
+  chatMessages ChatMessage[]
+
+  @@index([ownerId])
+  @@map("rooms")
+}
+
+// ============================================
+// ROOM PARTICIPANT MODEL
+// Tracks who joined which room and when
+// ============================================
+model RoomParticipant {
+  id       String          @id @default(auto()) @map("_id") @db.ObjectId
+  role     ParticipantRole @default(PARTICIPANT)
+  joinedAt DateTime        @default(now())
+  leftAt   DateTime?
+
+  // Relations
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+
+  roomId String @db.ObjectId
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roomId])
+  @@index([roomId])
+  @@index([userId])
+  @@map("room_participants")
+}
+
+// ============================================
+// CHAT MESSAGE MODEL
+// Persists chat messages for room history
+// ============================================
+model ChatMessage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+
+  roomId String @db.ObjectId
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([userId])
+  @@map("chat_messages")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+enum RoomStatus {
+  WAITING   // Room created, waiting to start
+  ACTIVE    // Meeting in progress
+  ENDED     // Meeting has ended
+}
+
+enum ParticipantRole {
+  HOST        // Room owner/creator
+  CO_HOST     // Can manage participants
+  PARTICIPANT // Regular participant
 }

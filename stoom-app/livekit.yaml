@@ -1,0 +1,16 @@
+port: 7880
+rtc:
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: false
+  tcp_port: 7881
+keys:
+  devkey: secret
+logging:
+  level: info
+
+# Webhook configuration for room lifecycle events
+webhook:
+  urls:
+    - http://host.docker.internal:3000/api/livekit/webhook
+  api_key: devkey

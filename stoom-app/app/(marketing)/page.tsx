@@ -1,8 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Video, Users, FileText, Sparkles, ArrowRight, Zap } from "lucide-react";
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const { userId } = await auth();
+  
+  // Redirect authenticated users to dashboard
+  if (userId) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}

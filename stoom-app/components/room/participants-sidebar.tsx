@@ -250,7 +250,7 @@ export function ParticipantsSidebar({
                     </div>
 
                     {/* Status Icons */}
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <div
                         className={cn(
                           "flex h-6 w-6 items-center justify-center rounded-full",

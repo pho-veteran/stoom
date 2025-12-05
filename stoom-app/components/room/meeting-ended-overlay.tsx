@@ -29,7 +29,7 @@ export function MeetingEndedOverlay({ hostName }: MeetingEndedOverlayProps) {
   }, [router])
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="mx-4 max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
           <XCircle className="h-8 w-8 text-red-600" strokeWidth={1.5} />

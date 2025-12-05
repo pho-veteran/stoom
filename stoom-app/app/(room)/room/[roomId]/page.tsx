@@ -86,8 +86,8 @@ export default function RoomPage({ params }: RoomPageProps) {
   // Loading state
   if (roomState === "loading") {
     return (
-      <div className="relative flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-violet-50/30">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]" />
+      <div className="relative flex h-screen w-screen items-center justify-center bg-linear-to-br from-slate-50 via-white to-violet-50/30">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[32px_32px]" />
         <div className="relative z-10 text-center">
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-100 mx-auto border border-violet-200">
             <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
@@ -102,8 +102,8 @@ export default function RoomPage({ params }: RoomPageProps) {
   // Error states (not found, ended, or generic error)
   if (roomState !== "valid") {
     return (
-      <div className="relative flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-violet-50/30">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]" />
+      <div className="relative flex h-screen w-screen items-center justify-center bg-linear-to-br from-slate-50 via-white to-violet-50/30">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[32px_32px]" />
         <div className="relative z-10 text-center max-w-md px-6">
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-red-100 mx-auto border border-red-200">
             <AlertTriangle className="h-10 w-10 text-red-600" />

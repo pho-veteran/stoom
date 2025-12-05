@@ -104,7 +104,7 @@ export function ChatNotesPanel({
                       {new Date(message.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
+                  <p className="text-sm whitespace-pre-wrap wrap-break-word">{message.message}</p>
                 </div>
               ))
             )}

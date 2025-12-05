@@ -15,13 +15,13 @@ export default async function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60">
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-card/95 backdrop-blur-xl supports-backdrop-filter:bg-card/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600 text-white font-bold">
               S
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="text-xl font-bold bg-linear-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
               Stoom
             </span>
           </Link>
@@ -38,8 +38,8 @@ export default async function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative flex flex-1 items-center justify-center overflow-hidden bg-background py-24 md:py-32">
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-50/30 via-background to-slate-50/30 dark:from-slate-950/50 dark:via-background dark:to-slate-900/50" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+        <div className="absolute inset-0 bg-linear-to-br from-violet-50/30 via-background to-slate-50/30 dark:from-slate-950/50 dark:via-background dark:to-slate-900/50" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px]" />
         <div className="container relative z-10 mx-auto px-6">
           <div className="mx-auto max-w-4xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-4 py-1.5 text-sm text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-400">
@@ -48,7 +48,7 @@ export default async function LandingPage() {
             </div>
             <h1 className="mb-6 text-5xl font-bold tracking-tight md:text-6xl lg:text-7xl">
               Study Together,{" "}
-              <span className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
                 Learn Better
               </span>
             </h1>
@@ -86,7 +86,7 @@ export default async function LandingPage() {
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               <div className="group relative overflow-hidden rounded-xl border-2 border-border bg-card p-6 transition-all duration-300 hover:border-violet-300 hover:shadow-xl hover:shadow-violet-500/10 dark:hover:border-violet-800 dark:hover:shadow-violet-500/20">
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
+                <div className="absolute inset-0 bg-linear-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
                 <div className="relative z-10">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-950/50">
                     <Video className="h-6 w-6 text-violet-600 dark:text-violet-400" strokeWidth={2} />
@@ -98,7 +98,7 @@ export default async function LandingPage() {
                 </div>
               </div>
               <div className="group relative overflow-hidden rounded-xl border-2 border-border bg-card p-6 transition-all duration-300 hover:border-violet-300 hover:shadow-xl hover:shadow-violet-500/10 dark:hover:border-violet-800 dark:hover:shadow-violet-500/20">
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
+                <div className="absolute inset-0 bg-linear-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
                 <div className="relative z-10">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-950/50">
                     <Users className="h-6 w-6 text-violet-600 dark:text-violet-400" strokeWidth={2} />
@@ -110,7 +110,7 @@ export default async function LandingPage() {
                 </div>
               </div>
               <div className="group relative overflow-hidden rounded-xl border-2 border-border bg-card p-6 transition-all duration-300 hover:border-violet-300 hover:shadow-xl hover:shadow-violet-500/10 dark:hover:border-violet-800 dark:hover:shadow-violet-500/20">
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
+                <div className="absolute inset-0 bg-linear-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
                 <div className="relative z-10">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-950/50">
                     <FileText className="h-6 w-6 text-violet-600 dark:text-violet-400" strokeWidth={2} />
@@ -122,7 +122,7 @@ export default async function LandingPage() {
                 </div>
               </div>
               <div className="group relative overflow-hidden rounded-xl border-2 border-border bg-card p-6 transition-all duration-300 hover:border-violet-300 hover:shadow-xl hover:shadow-violet-500/10 dark:hover:border-violet-800 dark:hover:shadow-violet-500/20">
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
+                <div className="absolute inset-0 bg-linear-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
                 <div className="relative z-10">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-950/50">
                     <Sparkles className="h-6 w-6 text-violet-600 dark:text-violet-400" strokeWidth={2} />

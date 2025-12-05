@@ -112,7 +112,7 @@ export function VideoFeedsView({ className, parentLayout = "horizontal" }: Video
               )}
 
               {/* Participant info overlay */}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+              <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-white truncate">
                     {name}

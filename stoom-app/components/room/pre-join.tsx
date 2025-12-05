@@ -231,8 +231,8 @@ export function PreJoin({ roomId, roomName, hasPassword, isHost, onJoin }: PreJo
   };
 
   return (
-    <div className="relative flex h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-violet-50/30">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]" />
+    <div className="relative flex h-screen items-center justify-center bg-linear-to-br from-slate-50 via-white to-violet-50/30">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[32px_32px]" />
       <div className="relative z-10 w-full max-w-2xl px-4">
         <Link
           href="/dashboard"

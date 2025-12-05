@@ -28,14 +28,14 @@ export function SessionCard({
     >
       <div className="group relative h-full cursor-pointer overflow-hidden rounded-xl border-2 border-border bg-card p-6 transition-all duration-300 hover:border-violet-300 hover:shadow-xl hover:shadow-violet-500/10 dark:hover:border-violet-800 dark:hover:shadow-violet-500/20">
         {/* Gradient Background Effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
+        <div className="absolute inset-0 bg-linear-to-br from-violet-50/0 via-violet-50/0 to-violet-100/0 transition-opacity duration-300 group-hover:from-violet-50/50 group-hover:via-violet-50/30 group-hover:to-violet-100/30 dark:group-hover:from-violet-950/20 dark:group-hover:via-violet-950/10 dark:group-hover:to-violet-900/20" />
         
         {/* Content */}
         <div className="relative z-10">
           {/* Header */}
           <div className="mb-4 flex items-start justify-between">
             <div className="flex-1">
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-purple-600 text-white text-xl font-bold shadow-lg">
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-linear-to-br from-violet-600 to-purple-600 text-white text-xl font-bold shadow-lg">
                 {title.charAt(0).toUpperCase()}
               </div>
               <h3 className="mb-1 line-clamp-2 text-lg font-bold leading-tight transition-colors group-hover:text-violet-600 dark:group-hover:text-violet-400">

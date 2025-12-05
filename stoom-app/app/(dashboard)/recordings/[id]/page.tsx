@@ -26,7 +26,7 @@ export default async function RecordingPage({ params }: RecordingPageProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-border/50 bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60">
+      <div className="sticky top-0 z-10 border-b border-border/50 bg-card/95 backdrop-blur-xl supports-backdrop-filter:bg-card/60">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -82,7 +82,7 @@ export default async function RecordingPage({ params }: RecordingPageProps) {
               <TabsContent value="whiteboard" className="mt-0">
                 <Card className="border-2 shadow-lg">
                   <CardContent className="p-6">
-                    <div className="aspect-video rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center border-2 border-dashed border-border">
+                    <div className="aspect-video rounded-lg bg-linear-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center border-2 border-dashed border-border">
                       <div className="text-center">
                         <ImageIcon className="h-16 w-16 mx-auto mb-3 text-muted-foreground" strokeWidth={1.5} />
                         <p className="text-sm font-medium text-muted-foreground">Whiteboard snapshot will be displayed here</p>
@@ -158,7 +158,7 @@ export default async function RecordingPage({ params }: RecordingPageProps) {
           <div className="space-y-6">
             {/* AI Insight Overview */}
             {session.hasAIInsights && (
-              <Card className="border-2 border-violet-200 bg-gradient-to-br from-violet-50/80 to-violet-100/50 shadow-lg dark:border-violet-900 dark:from-violet-950/30 dark:to-violet-900/20">
+              <Card className="border-2 border-violet-200 bg-linear-to-br from-violet-50/80 to-violet-100/50 shadow-lg dark:border-violet-900 dark:from-violet-950/30 dark:to-violet-900/20">
                 <CardHeader>
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-600">

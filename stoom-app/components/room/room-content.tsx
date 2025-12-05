@@ -141,7 +141,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
   const activeSpeaker = participantInfos.find((p) => p.isSpeaking) || null;
 
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-violet-50/30">
+    <div className="relative flex h-screen w-screen overflow-hidden bg-linear-to-br from-slate-50 via-white to-violet-50/30">
       {/* Meeting Ended Overlay */}
       {meetingEndedBy && <MeetingEndedOverlay hostName={meetingEndedBy} />}
 
@@ -268,8 +268,8 @@ export function RoomContent({
 
   if (isLoading) {
     return (
-      <div className="relative flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-violet-50/30">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]" />
+      <div className="relative flex h-screen w-screen items-center justify-center bg-linear-to-br from-slate-50 via-white to-violet-50/30">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[32px_32px]" />
         <div className="relative z-10 text-center">
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-100 mx-auto border border-violet-200">
             <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
@@ -285,8 +285,8 @@ export function RoomContent({
 
   if (error || !token) {
     return (
-      <div className="relative flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-violet-50/30">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]" />
+      <div className="relative flex h-screen w-screen items-center justify-center bg-linear-to-br from-slate-50 via-white to-violet-50/30">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[32px_32px]" />
         <div className="relative z-10 text-center max-w-md px-6">
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-red-100 mx-auto border border-red-200">
             <span className="text-3xl">⚠️</span>

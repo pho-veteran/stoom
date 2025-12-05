@@ -133,7 +133,7 @@ export function Stage({
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-gradient-to-br from-slate-100 to-slate-50">
+    <div className="relative h-full w-full overflow-hidden bg-linear-to-br from-slate-100 to-slate-50">
       {/* Control Bar */}
       <div
         className={cn(

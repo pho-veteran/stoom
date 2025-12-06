@@ -15,12 +15,9 @@ import {
   Video,
   VideoOff,
   Monitor,
-  Circle,
   PhoneOff,
   MessageSquare,
-  ScrollText,
   ChevronUp,
-  AlertTriangle,
   LogOut,
   XCircle,
 } from "lucide-react";
@@ -41,9 +38,7 @@ interface FloatingDockProps {
   onStartScreenShare: () => Promise<void>;
   onStopScreenShare: () => Promise<void>;
   onToggleChatNotes: () => void;
-  onToggleTranscript: () => void;
   chatNotesVisible: boolean;
-  transcriptVisible: boolean;
   onLeaveRoom?: () => void;
   onEndRoom?: () => void;
 }
@@ -60,31 +55,18 @@ export function FloatingDock({
   onStartScreenShare,
   onStopScreenShare,
   onToggleChatNotes,
-  onToggleTranscript,
   chatNotesVisible,
-  transcriptVisible,
   onLeaveRoom,
   onEndRoom,
 }: FloatingDockProps) {
   const router = useRouter();
-  const [isRecording, setIsRecording] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
-  const [showRecordingModal, setShowRecordingModal] = useState(false);
   const [showScreenShareModal, setShowScreenShareModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showEndMeetingModal, setShowEndMeetingModal] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleRecordingClick = () => {
-    setShowRecordingModal(true);
-  };
-
-  const handleConfirmRecording = () => {
-    setIsRecording(!isRecording);
-    setShowRecordingModal(false);
-  };
 
   const handleLeaveRoom = async () => {
     setIsLeaving(true);
@@ -104,9 +86,7 @@ export function FloatingDock({
   const handleEndMeeting = async () => {
     setIsLeaving(true);
     try {
-      // Broadcast to all participants that room is ending
       await onEndRoom?.();
-      // End room in database
       await axios.post("/api/room/end", { roomId });
       router.push("/dashboard");
     } catch (error) {
@@ -226,22 +206,6 @@ export function FloatingDock({
 
         <div className="mx-1 h-8 w-px bg-slate-200" />
 
-        {/* Record Meeting */}
-        <Button
-          variant={isRecording ? "destructive" : "default"}
-          size="icon"
-          onClick={handleRecordingClick}
-          className={cn(
-            "h-11 w-11 rounded-full",
-            isRecording && "bg-red-600 hover:bg-red-700 text-white"
-          )}
-          title={isRecording ? "Stop Recording" : "Start Recording"}
-        >
-          <Circle className={cn("h-5 w-5", isRecording && "fill-white")} strokeWidth={2} />
-        </Button>
-
-        <div className="mx-1 h-8 w-px bg-slate-200" />
-
         {/* Toggle Panels */}
         <Button
           variant={chatNotesVisible ? "default" : "outline"}
@@ -254,19 +218,6 @@ export function FloatingDock({
           title="Toggle Chat & Notes"
         >
           <MessageSquare className="h-5 w-5" strokeWidth={2} />
-        </Button>
-
-        <Button
-          variant={transcriptVisible ? "default" : "outline"}
-          size="icon"
-          onClick={onToggleTranscript}
-          className={cn(
-            "h-11 w-11 rounded-full",
-            transcriptVisible && "bg-violet-600 hover:bg-violet-700 text-white"
-          )}
-          title="Toggle Transcript"
-        >
-          <ScrollText className="h-5 w-5" strokeWidth={2} />
         </Button>
 
         <div className="mx-1 h-8 w-px bg-slate-200" />
@@ -296,57 +247,6 @@ export function FloatingDock({
         )}
       </div>
 
-      {/* Recording Confirmation Modal */}
-      <Dialog open={showRecordingModal} onOpenChange={setShowRecordingModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-full",
-                isRecording ? "bg-red-100 dark:bg-red-900/30" : "bg-violet-100 dark:bg-violet-900/30"
-              )}>
-                {isRecording ? (
-                  <Circle className="h-5 w-5 text-red-600 dark:text-red-400 fill-red-600 dark:fill-red-400" strokeWidth={2} />
-                ) : (
-                  <AlertTriangle className="h-5 w-5 text-violet-600 dark:text-violet-400" strokeWidth={2} />
-                )}
-              </div>
-              <DialogTitle>
-                {isRecording ? "Stop Recording?" : "Start Recording?"}
-              </DialogTitle>
-            </div>
-          </DialogHeader>
-          <DialogDescription className="pt-2">
-            {isRecording ? (
-              <>
-                Are you sure you want to stop recording this meeting? The recording will be saved and available in your recordings.
-              </>
-            ) : (
-              <>
-                This meeting will be recorded. All participants will be notified. The recording will include audio, video, and screen shares.
-              </>
-            )}
-          </DialogDescription>
-          <DialogFooter className="gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowRecordingModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant={isRecording ? "destructive" : "default"}
-              onClick={handleConfirmRecording}
-              className={cn(
-                isRecording && "bg-red-600 hover:bg-red-700"
-              )}
-            >
-              {isRecording ? "Stop Recording" : "Start Recording"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Screen Share Takeover Confirmation Modal */}
       <Dialog open={showScreenShareModal} onOpenChange={setShowScreenShareModal}>
         <DialogContent className="sm:max-w-md">
@@ -360,7 +260,7 @@ export function FloatingDock({
           </DialogHeader>
           <DialogDescription className="pt-2">
             <span className="font-semibold">{currentScreenSharerName}</span> is currently sharing their screen. 
-            Starting your screen share will replace their presentation. They will be notified that their screen share has ended.
+            Starting your screen share will replace their presentation.
           </DialogDescription>
           <DialogFooter className="gap-3">
             <Button
@@ -429,7 +329,7 @@ export function FloatingDock({
             </div>
           </DialogHeader>
           <DialogDescription className="pt-2">
-            This will end the meeting for all participants. Everyone will be disconnected and the meeting will be marked as ended.
+            This will end the meeting for all participants. Everyone will be disconnected.
           </DialogDescription>
           <DialogFooter className="gap-3">
             <Button

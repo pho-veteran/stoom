@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const email = user?.emailAddresses?.[0]?.emailAddress || `${userId}@temp.com`
 
     // Ensure user exists in database (upsert)
-    await prisma.user.upsert({
+    const dbUser = await prisma.user.upsert({
       where: { clerkId: userId },
       update: {
         name: participantName,
@@ -47,6 +47,47 @@ export async function POST(request: NextRequest) {
         imageUrl: user?.imageUrl,
       },
     })
+
+    // Get the room by code
+    const room = await prisma.room.findUnique({
+      where: { code: roomName },
+    })
+
+    if (room) {
+      // Create or update participant record when token is generated
+      // This ensures participants are recorded even if webhooks fail
+      const isHost = room.ownerId === dbUser.id
+      
+      await prisma.roomParticipant.upsert({
+        where: {
+          userId_roomId: {
+            userId: dbUser.id,
+            roomId: room.id,
+          },
+        },
+        update: {
+          // Reset leftAt if rejoining
+          leftAt: null,
+          joinedAt: new Date(),
+        },
+        create: {
+          userId: dbUser.id,
+          roomId: room.id,
+          role: isHost ? "HOST" : "PARTICIPANT",
+        },
+      })
+
+      // Update room status to ACTIVE when first participant joins
+      if (room.status === "WAITING") {
+        await prisma.room.update({
+          where: { id: room.id },
+          data: {
+            status: "ACTIVE",
+            startedAt: new Date(),
+          },
+        })
+      }
+    }
 
     const at = new AccessToken(apiKey, apiSecret, {
       identity: userId,

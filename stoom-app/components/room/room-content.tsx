@@ -6,7 +6,6 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Stage } from "./stage";
 import { ParticipantsSidebar } from "./participants-sidebar";
 import { ChatNotesPanel } from "./chat-notes-panel";
-import { TranscriptPanel } from "./transcript-panel";
 import { FloatingDock } from "./floating-dock";
 import { LiveKitRoomWrapper, useRoomControls, useRoomParticipants } from "./livekit-room-wrapper";
 import { MeetingEndedOverlay } from "./meeting-ended-overlay";
@@ -41,7 +40,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
   } = useRoomControls();
 
   const { participants } = useRoomParticipants();
-  const chat = useChat(room);
+  const chat = useChat(room, roomId);
 
   const { panels, togglePanel } = usePanelToggle({
     screenShare: true,
@@ -51,9 +50,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
 
   const [layout, setLayout] = useState<"horizontal" | "vertical">("horizontal");
   const [showChatNotes, setShowChatNotes] = useState(true);
-  const [showTranscript, setShowTranscript] = useState(false);
   const [chatNotesSize, setChatNotesSize] = useState(30);
-  const [transcriptSize, setTranscriptSize] = useState(30);
 
   // Load panel sizes from localStorage
   useEffect(() => {
@@ -63,7 +60,6 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
         try {
           const sizes = JSON.parse(saved);
           if (sizes.chatNotes) setChatNotesSize(sizes.chatNotes);
-          if (sizes.transcript) setTranscriptSize(sizes.transcript);
           if (sizes.layout) setLayout(sizes.layout);
         } catch {
           // Ignore parse errors
@@ -79,20 +75,14 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
       STORAGE_KEY,
       JSON.stringify({
         chatNotes: chatNotesSize,
-        transcript: transcriptSize,
         layout,
       })
     );
   };
 
   const handleLayout = (sizes: number[]) => {
-    let index = 0;
     if (showChatNotes) {
-      setChatNotesSize(sizes[index]);
-      index++;
-    }
-    if (showTranscript) {
-      setTranscriptSize(sizes[index]);
+      setChatNotesSize(sizes[0]);
     }
     savePanelSizes();
   };
@@ -107,11 +97,10 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
   const calculateMainStageSize = () => {
     let total = 100;
     if (showChatNotes) total -= chatNotesSize;
-    if (showTranscript) total -= transcriptSize;
     return Math.max(50, total);
   };
 
-  const visiblePanels = [showChatNotes, showTranscript].filter(Boolean).length;
+  const visiblePanels = showChatNotes ? 1 : 0;
 
   // Map participants to the format expected by ParticipantsSidebar
   const participantInfos = participants.map((p) => {
@@ -198,21 +187,6 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
             </Panel>
           </>
         )}
-
-        {/* Transcript Panel */}
-        {showTranscript && (
-          <>
-            <PanelResizeHandle className="w-1 bg-border hover:bg-violet-500 transition-colors cursor-col-resize active:bg-violet-600" />
-            <Panel
-              defaultSize={transcriptSize}
-              minSize={20}
-              maxSize={50}
-              className="min-w-[300px]"
-            >
-              <TranscriptPanel onClose={() => setShowTranscript(false)} />
-            </Panel>
-          </>
-        )}
       </PanelGroup>
 
       {/* Floating Dock */}
@@ -228,9 +202,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
         onStartScreenShare={startScreenShare}
         onStopScreenShare={stopScreenShare}
         onToggleChatNotes={() => setShowChatNotes(!showChatNotes)}
-        onToggleTranscript={() => setShowTranscript(!showTranscript)}
         chatNotesVisible={showChatNotes}
-        transcriptVisible={showTranscript}
         onEndRoom={broadcastRoomEnded}
       />
     </div>

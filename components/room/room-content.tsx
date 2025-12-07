@@ -14,6 +14,7 @@ import { useChat } from "@/hooks/use-chat";
 import { useRoomContext, useLocalParticipant } from "@livekit/components-react";
 import { useCollaborationPermissions } from "@/hooks/use-collaboration-permissions";
 import { useCollaborationSync } from "@/hooks/use-collaboration-sync";
+import { useHandRaise } from "@/hooks/use-hand-raise";
 
 // Local storage key for whiteboard state (used for manual save to DB)
 const getWhiteboardStorageKey = (roomId: string) => `stoom-whiteboard-${roomId}`;
@@ -61,6 +62,25 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
 
   // Collaboration permissions
   const userId = localParticipant?.identity || "";
+  const participantName = localParticipant?.name || userId;
+
+  // Hand raise state
+  const {
+    isHandRaised,
+    handRaiseQueue,
+    handRaiseCount,
+    toggleHandRaise,
+    lowerParticipantHand,
+    lowerAllHands,
+    isConnected: handRaiseConnected,
+    screenReaderAnnouncement,
+  } = useHandRaise({
+    roomId,
+    participantId: userId,
+    participantName,
+    isHost,
+    room,
+  });
   const {
     permissions,
     canEditWhiteboard,
@@ -244,6 +264,16 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
 
   return (
     <div className="relative flex h-screen w-screen overflow-hidden bg-linear-to-br from-slate-50 via-white to-violet-50/30">
+      {/* Screen reader announcements for accessibility */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {screenReaderAnnouncement}
+      </div>
+
       {/* Meeting Ended Overlay */}
       {meetingEndedBy && <MeetingEndedOverlay hostName={meetingEndedBy} />}
 
@@ -262,6 +292,13 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
         onStartScreenShare={startScreenShare}
         onStopScreenShare={stopScreenShare}
         onEndRoom={broadcastRoomEnded}
+        isHandRaised={isHandRaised}
+        onToggleHandRaise={toggleHandRaise}
+        isConnected={handRaiseConnected}
+        handRaiseQueue={handRaiseQueue}
+        handRaiseCount={handRaiseCount}
+        onLowerParticipantHand={lowerParticipantHand}
+        onLowerAllHands={lowerAllHands}
         onSaveWhiteboard={handleSaveWhiteboard}
         isWhiteboardSaving={isWhiteboardSaving}
         whiteboardSaveStatus={whiteboardSaveStatus}

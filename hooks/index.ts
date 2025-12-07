@@ -5,6 +5,7 @@ export { useChat } from "./use-chat";
 export { usePanelToggle } from "./use-panel-toggle";
 export { useCollaborationSync } from "./use-collaboration-sync";
 export { useCollaborationPermissions } from "./use-collaboration-permissions";
+export { useHandRaise } from "./use-hand-raise";
 
 export type { UseLiveKitRoomReturn } from "./use-livekit-room";
 export type { ParticipantInfo, UseParticipantsReturn } from "./use-participants";
@@ -15,3 +16,7 @@ export type {
   UseCollaborationPermissionsOptions,
   UseCollaborationPermissionsReturnExtended,
 } from "./use-collaboration-permissions";
+export type {
+  UseHandRaiseOptions,
+  UseHandRaiseReturn,
+} from "./use-hand-raise";

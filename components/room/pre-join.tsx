@@ -236,10 +236,43 @@ export function PreJoin({ roomId, roomName, hasPassword, isHost, onJoin }: PreJo
     }
   };
 
-  // Handle join
-  const handleJoin = () => {
-    cleanupMedia();
-    onJoin({ micEnabled, videoEnabled, password: hasPassword ? password : undefined });
+  // State for join validation
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  // Handle join with room re-validation
+  const handleJoin = async () => {
+    setIsJoining(true);
+    setJoinError(null);
+
+    try {
+      // Re-validate room before joining to ensure it's still active
+      const response = await fetch(`/api/room/validate?code=${roomId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Handle specific error codes
+        if (data.code === "ROOM_ENDED") {
+          setJoinError("This meeting has ended");
+        } else if (data.code === "ROOM_NOT_FOUND") {
+          setJoinError("Room not found");
+        } else if (data.code === "ROOM_INACTIVE") {
+          setJoinError("This room is no longer active");
+        } else {
+          setJoinError(data.error || "Failed to join room");
+        }
+        setIsJoining(false);
+        return;
+      }
+
+      // Room is valid, proceed with join
+      cleanupMedia();
+      onJoin({ micEnabled, videoEnabled, password: hasPassword ? password : undefined });
+    } catch (err) {
+      console.error("Failed to validate room before joining:", err);
+      setJoinError("Failed to connect. Please try again.");
+      setIsJoining(false);
+    }
   };
 
   return (
@@ -383,17 +416,29 @@ export function PreJoin({ roomId, roomName, hasPassword, isHost, onJoin }: PreJo
               </Button>
             </div>
 
+            {/* Join Error */}
+            {joinError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm text-center">
+                {joinError}
+              </div>
+            )}
+
             {/* Join Button */}
             <Button
               className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium"
               size="lg"
               onClick={handleJoin}
-              disabled={isLoading}
+              disabled={isLoading || isJoining}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Initializing...
+                </>
+              ) : isJoining ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Joining...
                 </>
               ) : (
                 "Join Room"

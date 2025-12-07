@@ -29,6 +29,8 @@ import {
   ChevronsUpDown,
   Crown,
   Shield,
+  Hand,
+  Grab,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,8 +48,18 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ParticipantInfo } from "@/hooks/use-participants";
 import type { CollaborationPermissions, PermissionLevel } from "@/lib/collaboration-types";
+import type { HandRaiseState } from "@/lib/hand-raise-types";
+import { HandRaiseButton } from "./hand-raise-button";
+import { ParticipantHandRaiseIndicator } from "./participant-hand-raise-indicator";
+import { HandRaiseControls } from "./hand-raise-controls";
 
 interface MeetingSidebarProps {
   roomId: string;
@@ -66,6 +78,14 @@ interface MeetingSidebarProps {
   onStopScreenShare: () => Promise<void>;
   onLeaveRoom?: () => void;
   onEndRoom?: () => void;
+  // Hand raise controls
+  isHandRaised?: boolean;
+  onToggleHandRaise?: () => void;
+  isConnected?: boolean;
+  handRaiseQueue?: HandRaiseState[];
+  handRaiseCount?: number;
+  onLowerParticipantHand?: (participantId: string) => void;
+  onLowerAllHands?: () => void;
   // Whiteboard save
   onSaveWhiteboard?: () => Promise<void>;
   isWhiteboardSaving?: boolean;
@@ -116,9 +136,17 @@ export function MeetingSidebar({
   onStopScreenShare,
   onLeaveRoom,
   onEndRoom,
+  isHandRaised = false,
+  onToggleHandRaise,
+  isConnected = true,
+  handRaiseQueue = [],
+  handRaiseCount = 0,
+  onLowerParticipantHand,
+  onLowerAllHands,
   onSaveWhiteboard,
   isWhiteboardSaving = false,
   whiteboardSaveStatus = "idle",
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   canEditWhiteboard = true,
   canSaveWhiteboard = false,
   showScreenShare,
@@ -204,6 +232,10 @@ export function MeetingSidebar({
         onToggleMic={onToggleMic}
         onToggleVideo={onToggleVideo}
         onExpand={() => setIsCollapsed(false)}
+        isHandRaised={isHandRaised}
+        onToggleHandRaise={onToggleHandRaise}
+        isConnected={isConnected}
+        handRaiseCount={handRaiseCount}
       />
     );
   }
@@ -304,6 +336,17 @@ export function MeetingSidebar({
             <Monitor className="h-4 w-4" strokeWidth={2} />
           </Button>
 
+          {/* Hand Raise Button */}
+          {onToggleHandRaise && (
+            <div className="h-10 w-10">
+              <HandRaiseButton
+                isRaised={isHandRaised}
+                onToggle={onToggleHandRaise}
+                disabled={!isConnected}
+              />
+            </div>
+          )}
+
           {/* Save Whiteboard Button - only for host/co-host */}
           {canSaveWhiteboard && onSaveWhiteboard && (
             <Button
@@ -400,9 +443,37 @@ export function MeetingSidebar({
             <Users className="h-4 w-4 text-slate-400" strokeWidth={2} />
             <span className="text-sm font-medium text-slate-700">Participants</span>
           </div>
-          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-violet-100 px-2 text-xs font-semibold text-violet-600">
-            {participants.length}
-          </span>
+          <div className="flex items-center gap-2">
+            {handRaiseCount > 0 && (
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-100 px-2 text-xs font-semibold text-amber-600 gap-1">
+                <Hand className="h-3 w-3" strokeWidth={2} />
+                {handRaiseCount}
+              </span>
+            )}
+            {canManagePermissions && handRaiseCount > 0 && onLowerAllHands && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onLowerAllHands}
+                      className="h-6 w-6 hover:bg-amber-100"
+                      aria-label="Lower all hands"
+                    >
+                      <Grab className="h-3.5 w-3.5 text-amber-600" strokeWidth={2} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Lower all hands</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-violet-100 px-2 text-xs font-semibold text-violet-600">
+              {participants.length}
+            </span>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
@@ -418,6 +489,15 @@ export function MeetingSidebar({
             <div className="space-y-1">
               {participants.map((participant) => {
                 const isActive = activeSpeaker?.identity === participant.identity || participant.isSpeaking;
+                
+                // Find hand raise state for this participant
+                const handRaiseState = handRaiseQueue.find(
+                  (state) => state.participantId === participant.identity
+                );
+                const queuePosition = handRaiseState
+                  ? handRaiseQueue.indexOf(handRaiseState) + 1
+                  : undefined;
+                
                 return (
                   <div
                     key={participant.identity}
@@ -457,6 +537,24 @@ export function MeetingSidebar({
                         )}
                       </p>
                     </div>
+                    
+                    {/* Hand Raise Indicator */}
+                    <ParticipantHandRaiseIndicator
+                      isRaised={!!handRaiseState}
+                      raisedAt={handRaiseState?.raisedAt}
+                      queuePosition={queuePosition}
+                    />
+                    
+                    {/* Host Controls for Hand Raise */}
+                    {onLowerParticipantHand && (
+                      <HandRaiseControls
+                        participantId={participant.identity}
+                        isRaised={!!handRaiseState}
+                        isHost={canManagePermissions || false}
+                        onLowerHand={onLowerParticipantHand}
+                      />
+                    )}
+                    
                     <div className="flex items-center gap-1 shrink-0">
                       <div className={cn("flex h-5 w-5 items-center justify-center rounded-full", participant.isAudioEnabled ? "bg-emerald-100" : "bg-red-100")}>
                         {participant.isAudioEnabled ? (
@@ -568,6 +666,10 @@ function CollapsedSidebar({
   onToggleMic,
   onToggleVideo,
   onExpand,
+  isHandRaised,
+  onToggleHandRaise,
+  isConnected,
+  handRaiseCount,
 }: {
   participants: ParticipantInfo[];
   activeSpeaker?: ParticipantInfo | null;
@@ -576,6 +678,10 @@ function CollapsedSidebar({
   onToggleMic: () => Promise<void>;
   onToggleVideo: () => Promise<void>;
   onExpand: () => void;
+  isHandRaised?: boolean;
+  onToggleHandRaise?: () => void;
+  isConnected?: boolean;
+  handRaiseCount?: number;
 }) {
   return (
     <div className="flex h-full w-16 flex-col items-center border-r border-slate-200 bg-white transition-all duration-300">
@@ -609,11 +715,27 @@ function CollapsedSidebar({
         >
           {videoEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
         </Button>
+        {onToggleHandRaise && (
+          <div className="h-9 w-9">
+            <HandRaiseButton
+              isRaised={isHandRaised || false}
+              onToggle={onToggleHandRaise}
+              disabled={!isConnected}
+            />
+          </div>
+        )}
       </div>
 
       <div className="mt-4 flex h-10 w-10 items-center justify-center rounded-full bg-violet-100">
         <span className="text-sm font-bold text-violet-600">{participants.length}</span>
       </div>
+      
+      {/* Hand raise count badge */}
+      {handRaiseCount && handRaiseCount > 0 && (
+        <div className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
+          <span className="text-xs font-bold text-amber-600">{handRaiseCount}</span>
+        </div>
+      )}
 
       <div className="mt-4 flex-1 overflow-y-auto px-2">
         <div className="flex flex-col items-center gap-2">

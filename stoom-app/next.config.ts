@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Empty turbopack config to silence the warning
+  // tldraw works with dynamic imports and SSR disabled
+  turbopack: {},
 };
 
 export default nextConfig;

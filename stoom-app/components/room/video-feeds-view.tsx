@@ -90,7 +90,7 @@ export function VideoFeedsView({ className, parentLayout = "horizontal" }: Video
           <div key={participant.identity} className="relative min-h-0">
             <div
               className={cn(
-                "relative h-full w-full overflow-hidden rounded-lg bg-slate-900 transition-all duration-300",
+                "relative h-full w-full overflow-hidden bg-slate-900 transition-all duration-300",
                 participant.isSpeaking &&
                   "ring-2 ring-violet-500 ring-offset-2 ring-offset-slate-950"
               )}

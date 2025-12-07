@@ -7,7 +7,15 @@ const isPublicRoute = createRouteMatcher([
   "/api/clerk(.*)",
 ]);
 
+// API routes should not redirect - let route handlers return 401 JSON
+const isApiRoute = createRouteMatcher(["/api(.*)"]);
+
 export default clerkMiddleware(async (auth, request) => {
+  // Skip redirect for API routes - they handle auth themselves
+  if (isApiRoute(request)) {
+    return;
+  }
+  
   if (!isPublicRoute(request)) {
     await auth.protect();
   }

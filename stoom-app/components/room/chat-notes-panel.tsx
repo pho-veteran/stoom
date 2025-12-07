@@ -6,14 +6,19 @@ import { Input } from "@/components/ui/input";
 import { MessageSquare, FileText, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "@/hooks/use-chat";
+import { PersonalNotes } from "./personal-notes";
 
 interface ChatNotesPanelProps {
+  roomId: string;
+  userId: string;
   onClose: () => void;
   messages?: ChatMessage[];
   onSendMessage?: (message: string) => Promise<void>;
 }
 
 export function ChatNotesPanel({
+  roomId,
+  userId,
   onClose,
   messages = [],
   onSendMessage,
@@ -131,17 +136,13 @@ export function ChatNotesPanel({
           </div>
         </TabsContent>
 
-        {/* Notes Tab */}
+        {/* Notes Tab - Personal notes per user (everyone can access their own notes) */}
         <TabsContent value="notes" className="flex flex-1 flex-col overflow-hidden mt-0">
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="min-h-full rounded-lg border border-border bg-background p-4">
-              <p className="text-sm text-muted-foreground">
-                Collaborative notes editor will be available here
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                (Tiptap integration coming soon)
-              </p>
-            </div>
+          <div className="flex-1 overflow-hidden">
+            <PersonalNotes
+              roomId={roomId}
+              userId={userId}
+            />
           </div>
         </TabsContent>
       </Tabs>

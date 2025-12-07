@@ -34,7 +34,7 @@ model User {
 
 // ============================================
 // ROOM MODEL
-// Represents a meeting room
+// Represents a meeting room with collaboration data
 // ============================================
 model Room {
   id          String     @id @default(auto()) @map("_id") @db.ObjectId
@@ -46,15 +46,24 @@ model Room {
   status      RoomStatus @default(WAITING)
   
   // Settings
-  maxParticipants Int     @default(50)
-  allowChat       Boolean @default(true)
+  maxParticipants  Int     @default(50)
+  allowChat        Boolean @default(true)
   allowScreenShare Boolean @default(true)
   
+  // Collaboration permissions
+  whiteboardPermission   String   @default("open")  // 'open' | 'restricted' | 'disabled'
+  notesPermission        String   @default("open")  // 'open' | 'restricted' | 'disabled'
+  whiteboardAllowedUsers String[] @default([])      // User IDs with explicit whiteboard access
+  notesAllowedUsers      String[] @default([])      // User IDs with explicit notes access
+  
+  // Collaboration data (shared for all participants)
+  whiteboardSnapshot Json? // tldraw TLStoreSnapshot
+  
   // Timestamps
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  startedAt   DateTime? // When the meeting actually started
-  endedAt     DateTime? // When the meeting ended
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  startedAt DateTime? // When the meeting started
+  endedAt   DateTime? // When the meeting ended
 
   // Owner relation
   ownerId String @db.ObjectId
@@ -63,6 +72,7 @@ model Room {
   // Relations
   participants RoomParticipant[]
   chatMessages ChatMessage[]
+  notes        RoomNote[]
 
   @@index([ownerId])
   @@map("rooms")
@@ -113,6 +123,31 @@ model ChatMessage {
 }
 
 // ============================================
+// ROOM NOTE MODEL
+// Stores personal notes for each user per room
+// Each user has their own notes (not collaborative)
+// ============================================
+model RoomNote {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   Json     // Tiptap JSONContent - personal notes content
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // User who owns these notes (using clerkId for direct lookup)
+  clerkUserId String
+
+  // Relations
+  roomId String @db.ObjectId
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  // Each user can only have one note per room
+  @@unique([roomId, clerkUserId])
+  @@index([roomId])
+  @@index([clerkUserId])
+  @@map("room_notes")
+}
+
+// ============================================
 // ENUMS
 // ============================================
 enum RoomStatus {
@@ -126,5 +161,3 @@ enum ParticipantRole {
   CO_HOST     // Can manage participants
   PARTICIPANT // Regular participant
 }
-
-

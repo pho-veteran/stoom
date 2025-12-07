@@ -184,28 +184,40 @@ export function PreJoin({ roomId, roomName, hasPassword, isHost, onJoin }: PreJo
     };
   }, [cleanupMedia]);
 
-  // Toggle video
+  // Toggle video - properly stop/start the track to turn off camera light
   const toggleVideo = async () => {
-    if (streamRef.current) {
-      const videoTrack = streamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoEnabled;
-        setVideoEnabled(!videoEnabled);
-      } else if (!videoEnabled) {
-        // Need to get a new video track
-        try {
-          const newStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-          });
-          const newVideoTrack = newStream.getVideoTracks()[0];
-          streamRef.current.addTrack(newVideoTrack);
-          if (videoRef.current) {
-            videoRef.current.srcObject = streamRef.current;
-          }
-          setVideoEnabled(true);
-        } catch (err) {
-          console.error("Failed to enable video:", err);
+    if (videoEnabled) {
+      // Turn off camera - stop the track completely
+      if (streamRef.current) {
+        const videoTrack = streamRef.current.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.stop();
+          streamRef.current.removeTrack(videoTrack);
         }
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setVideoEnabled(false);
+    } else {
+      // Turn on camera - get a new video track
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        if (streamRef.current) {
+          streamRef.current.addTrack(newVideoTrack);
+        } else {
+          streamRef.current = newStream;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          await videoRef.current.play();
+        }
+        setVideoEnabled(true);
+      } catch (err) {
+        console.error("Failed to enable video:", err);
       }
     }
   };

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -119,4 +120,43 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+
+/* Custom tldraw grid - checkered/caro pattern */
+.tl-background {
+  --grid-color: rgba(0, 0, 0, 0.06);
+  background-color: white !important;
+  background-image: 
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+}
+
+/* Dark mode - tldraw uses data attribute and theme class */
+[data-color-mode="dark"] .tl-background,
+.dark .tl-background,
+.tl-theme__dark .tl-background {
+  --grid-color: rgba(255, 255, 255, 0.08);
+  background-color: #1e1e1e !important;
+}
+
+
+/* Ensure modal overlays appear above tldraw toolbar */
+[data-radix-dialog-overlay],
+[data-radix-alert-dialog-overlay],
+.fixed[role="dialog"],
+[data-state="open"][data-radix-dialog-content],
+[data-state="open"][data-radix-alert-dialog-content] {
+  z-index: 500 !important;
+}
+
+[data-radix-dialog-content],
+[data-radix-alert-dialog-content] {
+  z-index: 500 !important;
+}
+
+/* Popover should be above dialog */
+[data-radix-popover-content] {
+  z-index: 600 !important;
 }

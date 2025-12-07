@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useUser, useAuth, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import Image from "next/image";
 import axios from "axios";
@@ -17,8 +17,18 @@ import {
   Users,
   Copy,
   Check,
+  PenTool,
+  FileText,
+  Maximize2,
+  Minimize2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WhiteboardSnapshotViewer } from "@/components/session/whiteboard-snapshot-viewer";
+import { NotesContentViewer } from "@/components/session/notes-content-viewer";
+import type { TLStoreSnapshot } from "tldraw";
+import type { JSONContent } from "@tiptap/react";
 
 interface Participant {
   id: string;
@@ -40,6 +50,11 @@ interface ChatMessage {
   };
 }
 
+interface CollaborationData {
+  whiteboardSnapshot: TLStoreSnapshot | null;
+  notesContent: JSONContent | null;
+}
+
 interface SessionDetail {
   id: string;
   code: string;
@@ -57,6 +72,7 @@ interface SessionDetail {
   participants: Participant[];
   messages: ChatMessage[];
   isOwner: boolean;
+  collaboration: CollaborationData | null;
 }
 
 export default function SessionDetailPage({
@@ -65,27 +81,49 @@ export default function SessionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { user, isLoaded } = useUser();
+  const { isLoaded } = useUser();
+  const { isSignedIn, getToken } = useAuth();
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [isCollaborationMaximized, setIsCollaborationMaximized] = useState(false);
 
   useEffect(() => {
     const fetchSession = async () => {
       try {
-        const response = await axios.get(`/api/sessions/${id}`);
+        // Get fresh token to ensure auth is ready
+        const token = await getToken();
+        if (!token) {
+          // Auth not ready yet, wait
+          return;
+        }
+        
+        // Include auth header to prevent redirect on 401
+        const response = await axios.get(`/api/sessions/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         setSession(response.data);
       } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          // Auth failed, redirect to sign-in
+          window.location.href = "/sign-in";
+          return;
+        }
         console.error("Error fetching session:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (isLoaded && user) {
+    if (isLoaded && isSignedIn) {
       fetchSession();
+    } else if (isLoaded && !isSignedIn) {
+      // User is not signed in, redirect
+      window.location.href = "/sign-in";
     }
-  }, [isLoaded, user, id]);
+  }, [isLoaded, isSignedIn, id, getToken]);
 
   const handleCopyCode = async () => {
     if (session?.code) {
@@ -274,6 +312,51 @@ export default function SessionDetailPage({
             </div>
           </div>
 
+          {/* Collaboration Content - Whiteboard & Notes (Requirements: 3.3, 3.4) */}
+          {session.collaboration && (
+            <div className="rounded-xl border-2 border-border bg-card p-5 mb-6">
+              <Tabs defaultValue="whiteboard" className="w-full">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold">Collaboration Content</h3>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsCollaborationMaximized(true)}
+                      className="h-8 w-8"
+                      title="Maximize"
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
+                    <TabsList>
+                      <TabsTrigger value="whiteboard" className="gap-2">
+                        <PenTool className="h-4 w-4" />
+                        Whiteboard
+                      </TabsTrigger>
+                      <TabsTrigger value="notes" className="gap-2">
+                        <FileText className="h-4 w-4" />
+                        My Notes
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                </div>
+                <TabsContent value="whiteboard" className="mt-0">
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <WhiteboardSnapshotViewer
+                      snapshot={session.collaboration.whiteboardSnapshot}
+                    />
+                  </div>
+                </TabsContent>
+                <TabsContent value="notes" className="mt-0">
+                  <NotesContentViewer
+                    content={session.collaboration.notesContent}
+                    roomId={session.id}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
           {/* Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Participants */}
@@ -414,6 +497,68 @@ export default function SessionDetailPage({
           </div>
         </div>
       </main>
+
+      {/* Fullscreen Collaboration Modal */}
+      {isCollaborationMaximized && session.collaboration && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <div className="h-full w-full flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+              <h2 className="text-lg font-semibold">Collaboration Content</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCollaborationMaximized(false)}
+                className="h-8 w-8"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="flex-1 p-4 overflow-hidden">
+              <Tabs defaultValue="whiteboard" className="h-full flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <TabsList>
+                    <TabsTrigger value="whiteboard" className="gap-2">
+                      <PenTool className="h-4 w-4" />
+                      Whiteboard
+                    </TabsTrigger>
+                    <TabsTrigger value="notes" className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      My Notes
+                    </TabsTrigger>
+                  </TabsList>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCollaborationMaximized(false)}
+                    className="gap-2"
+                  >
+                    <Minimize2 className="h-4 w-4" />
+                    Exit Fullscreen
+                  </Button>
+                </div>
+                <TabsContent value="whiteboard" className="mt-0 flex-1">
+                  <div className="rounded-lg border border-border overflow-hidden h-full">
+                    <WhiteboardSnapshotViewer
+                      snapshot={session.collaboration.whiteboardSnapshot}
+                      className="!h-full"
+                    />
+                  </div>
+                </TabsContent>
+                <TabsContent value="notes" className="mt-0 flex-1">
+                  <NotesContentViewer
+                    content={session.collaboration.notesContent}
+                    roomId={session.id}
+                    className="h-full"
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,18 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Stage } from "./stage";
-import { ParticipantsSidebar } from "./participants-sidebar";
+import { MeetingSidebar } from "./meeting-sidebar";
 import { ChatNotesPanel } from "./chat-notes-panel";
-import { FloatingDock } from "./floating-dock";
 import { LiveKitRoomWrapper, useRoomControls, useRoomParticipants } from "./livekit-room-wrapper";
 import { MeetingEndedOverlay } from "./meeting-ended-overlay";
 import { usePanelToggle } from "@/hooks/use-panel-toggle";
 import { Loader2 } from "lucide-react";
 import { useChat } from "@/hooks/use-chat";
-import { useRoomContext } from "@livekit/components-react";
+import { useRoomContext, useLocalParticipant } from "@livekit/components-react";
+import { useCollaborationPermissions } from "@/hooks/use-collaboration-permissions";
+import { useCollaborationSync } from "@/hooks/use-collaboration-sync";
+
+// Local storage key for whiteboard state (used for manual save to DB)
+const getWhiteboardStorageKey = (roomId: string) => `stoom-whiteboard-${roomId}`;
+
+/**
+ * Clear whiteboard localStorage on room exit
+ */
+function clearWhiteboardStorage(roomId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(getWhiteboardStorageKey(roomId));
+  } catch {
+    // Storage error
+  }
+}
 
 interface RoomContentProps {
   roomId: string;
@@ -25,6 +41,7 @@ const STORAGE_KEY = "stoom-panel-sizes";
 
 function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?: boolean }) {
   const room = useRoomContext();
+  const { localParticipant } = useLocalParticipant();
   const {
     isMicEnabled,
     isCameraEnabled,
@@ -42,15 +59,111 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
   const { participants } = useRoomParticipants();
   const chat = useChat(room, roomId);
 
+  // Collaboration permissions
+  const userId = localParticipant?.identity || "";
+  const {
+    permissions,
+    canEditWhiteboard,
+    canViewWhiteboard,
+    canManagePermissions,
+    canEndMeeting,
+    canManageCoHosts,
+    updatePermissions,
+    grantWhiteboardAccess,
+    revokeWhiteboardAccess,
+    grantCoHost,
+    revokeCoHost,
+    handlePermissionUpdate,
+  } = useCollaborationPermissions(room, {
+    roomId,
+    userId,
+    isHost,
+  });
+
+  // Remote save status state (from other host/co-host)
+  const [remoteSaveStatus, setRemoteSaveStatus] = useState<{
+    status: 'saving' | 'saved' | 'error';
+    senderName: string;
+  } | null>(null);
+
+  // Set up collaboration sync to listen for permission updates and save status from other participants
+  const { sendSaveStatus } = useCollaborationSync(room, {
+    roomId,
+    onPermissionUpdate: handlePermissionUpdate,
+    onSaveStatus: (message) => {
+      // Only show save status for whiteboard
+      if (message.payload.feature === 'whiteboard') {
+        setRemoteSaveStatus({
+          status: message.payload.status,
+          senderName: message.payload.senderName,
+        });
+        
+        // Clear status after 3 seconds for 'saved' or 'error'
+        if (message.payload.status !== 'saving') {
+          setTimeout(() => setRemoteSaveStatus(null), 3000);
+        }
+      }
+    },
+  });
+
+  // Cleanup whiteboard storage when leaving the room
+  useEffect(() => {
+    return () => {
+      // Clear whiteboard localStorage and sessionStorage on room exit
+      clearWhiteboardStorage(roomId);
+    };
+  }, [roomId]);
+
   const { panels, togglePanel } = usePanelToggle({
-    screenShare: true,
-    whiteboard: false,
-    videoFeeds: true,
+    screenShare: false,
+    whiteboard: true,
+    videoFeeds: false,
   });
 
   const [layout, setLayout] = useState<"horizontal" | "vertical">("horizontal");
   const [showChatNotes, setShowChatNotes] = useState(true);
   const [chatNotesSize, setChatNotesSize] = useState(30);
+  
+  // Whiteboard save state
+  const [isWhiteboardSaving, setIsWhiteboardSaving] = useState(false);
+  const [whiteboardSaveStatus, setWhiteboardSaveStatus] = useState<"idle" | "saved">("idle");
+
+  /**
+   * Save whiteboard snapshot to database
+   */
+  const handleSaveWhiteboard = useCallback(async () => {
+    if (isWhiteboardSaving) return;
+
+    setIsWhiteboardSaving(true);
+    setWhiteboardSaveStatus("idle");
+    
+    // Broadcast saving status to other participants
+    sendSaveStatus("whiteboard", "saving");
+
+    try {
+      // Get snapshot from localStorage (where whiteboard component saves it)
+      const storageKey = getWhiteboardStorageKey(roomId);
+      const savedSnapshot = localStorage.getItem(storageKey);
+      
+      if (savedSnapshot) {
+        const snapshot = JSON.parse(savedSnapshot);
+        await axios.post(`/api/room/${roomId}/whiteboard`, { snapshot });
+        setWhiteboardSaveStatus("saved");
+        
+        // Broadcast saved status to other participants
+        sendSaveStatus("whiteboard", "saved");
+        
+        // Reset status after 2 seconds
+        setTimeout(() => setWhiteboardSaveStatus("idle"), 2000);
+      }
+    } catch (error) {
+      console.error("Failed to save whiteboard:", error);
+      // Broadcast error status to other participants
+      sendSaveStatus("whiteboard", "error");
+    } finally {
+      setIsWhiteboardSaving(false);
+    }
+  }, [roomId, isWhiteboardSaving, sendSaveStatus]);
 
   // Load panel sizes from localStorage
   useEffect(() => {
@@ -102,7 +215,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
 
   const visiblePanels = showChatNotes ? 1 : 0;
 
-  // Map participants to the format expected by ParticipantsSidebar
+  // Map participants to the format expected by MeetingSidebar
   const participantInfos = participants.map((p) => {
     // Parse metadata to get imageUrl
     let imageUrl: string | null = null;
@@ -134,11 +247,46 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
       {/* Meeting Ended Overlay */}
       {meetingEndedBy && <MeetingEndedOverlay hostName={meetingEndedBy} />}
 
-      {/* Participants Sidebar */}
-      <ParticipantsSidebar
+      {/* Meeting Sidebar - combines participants, controls, and panel toggles */}
+      <MeetingSidebar
         roomId={roomId}
+        currentUserId={userId}
         participants={participantInfos}
         activeSpeaker={activeSpeaker}
+        micEnabled={isMicEnabled}
+        videoEnabled={isCameraEnabled}
+        isScreenSharing={isScreenShareEnabled}
+        currentScreenSharerName={currentScreenSharer?.name || currentScreenSharer?.identity}
+        onToggleMic={toggleMicrophone}
+        onToggleVideo={toggleCamera}
+        onStartScreenShare={startScreenShare}
+        onStopScreenShare={stopScreenShare}
+        onEndRoom={broadcastRoomEnded}
+        onSaveWhiteboard={handleSaveWhiteboard}
+        isWhiteboardSaving={isWhiteboardSaving}
+        whiteboardSaveStatus={whiteboardSaveStatus}
+        canEditWhiteboard={canEditWhiteboard}
+        canSaveWhiteboard={canManagePermissions}
+        showScreenShare={panels.screenShare}
+        showWhiteboard={panels.whiteboard}
+        showVideoFeeds={panels.videoFeeds}
+        onToggleScreenShare={() => togglePanel("screenShare")}
+        onToggleWhiteboard={() => togglePanel("whiteboard")}
+        onToggleVideoFeeds={() => togglePanel("videoFeeds")}
+        chatNotesVisible={showChatNotes}
+        onToggleChatNotes={() => setShowChatNotes(!showChatNotes)}
+        layout={layout}
+        onToggleLayout={handleToggleLayout}
+        permissions={permissions}
+        canManagePermissions={canManagePermissions}
+        canEndMeeting={canEndMeeting}
+        canManageCoHosts={canManageCoHosts}
+        onUpdatePermissions={updatePermissions}
+        onGrantWhiteboardAccess={grantWhiteboardAccess}
+        onRevokeWhiteboardAccess={revokeWhiteboardAccess}
+        onGrantCoHost={grantCoHost}
+        onRevokeCoHost={revokeCoHost}
+        canViewWhiteboard={canViewWhiteboard}
       />
 
       {/* Main Content Area */}
@@ -155,17 +303,15 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
         >
           <Stage
             room={room}
+            roomId={roomId}
             showScreenShare={panels.screenShare}
-            showWhiteboard={panels.whiteboard}
+            showWhiteboard={panels.whiteboard && canViewWhiteboard}
             showVideoFeeds={panels.videoFeeds}
-            onToggleScreenShare={() => togglePanel("screenShare")}
-            onToggleWhiteboard={() => togglePanel("whiteboard")}
-            onToggleVideoFeeds={() => togglePanel("videoFeeds")}
             layout={layout}
-            onToggleLayout={handleToggleLayout}
-            screenShareInfo={null}
             isLocalSharing={isScreenShareEnabled}
             onStopScreenShare={toggleScreenShare}
+            whiteboardReadOnly={!canEditWhiteboard}
+            whiteboardSaveStatus={remoteSaveStatus}
           />
         </Panel>
 
@@ -180,6 +326,8 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
               className="min-w-[300px]"
             >
               <ChatNotesPanel
+                roomId={roomId}
+                userId={userId}
                 onClose={() => setShowChatNotes(false)}
                 messages={chat.messages}
                 onSendMessage={chat.sendMessage}
@@ -189,22 +337,6 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
         )}
       </PanelGroup>
 
-      {/* Floating Dock */}
-      <FloatingDock
-        roomId={roomId}
-        isHost={isHost}
-        micEnabled={isMicEnabled}
-        videoEnabled={isCameraEnabled}
-        isScreenSharing={isScreenShareEnabled}
-        currentScreenSharerName={currentScreenSharer?.name || currentScreenSharer?.identity}
-        onToggleMic={toggleMicrophone}
-        onToggleVideo={toggleCamera}
-        onStartScreenShare={startScreenShare}
-        onStopScreenShare={stopScreenShare}
-        onToggleChatNotes={() => setShowChatNotes(!showChatNotes)}
-        chatNotesVisible={showChatNotes}
-        onEndRoom={broadcastRoomEnded}
-      />
     </div>
   );
 }

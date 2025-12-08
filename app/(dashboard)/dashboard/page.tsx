@@ -27,6 +27,7 @@ import {
   Circle,
   MessageSquare,
   Loader2,
+  PenTool,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
@@ -59,6 +60,7 @@ export default function DashboardPage() {
   const [meetingTitle, setMeetingTitle] = useState("");
   const [requirePassword, setRequirePassword] = useState(false);
   const [roomPassword, setRoomPassword] = useState("");
+  const [restrictWhiteboard, setRestrictWhiteboard] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   // Fetch sessions on mount
@@ -94,6 +96,7 @@ export default function DashboardPage() {
         body: JSON.stringify({
           name: meetingTitle,
           password: requirePassword ? roomPassword : null,
+          whiteboardPermission: restrictWhiteboard ? "restricted" : "open",
         }),
       });
 
@@ -107,6 +110,7 @@ export default function DashboardPage() {
       setMeetingTitle("");
       setRequirePassword(false);
       setRoomPassword("");
+      setRestrictWhiteboard(false);
     } catch (error) {
       console.error("Error creating meeting:", error);
       alert("Failed to create meeting. Please try again.");
@@ -320,6 +324,18 @@ export default function DashboardPage() {
                           className="h-10 pl-6"
                         />
                       )}
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="restrict-whiteboard"
+                          checked={restrictWhiteboard}
+                          onCheckedChange={(checked) => setRestrictWhiteboard(checked === true)}
+                        />
+                        <Label htmlFor="restrict-whiteboard" className="text-sm cursor-pointer flex items-center gap-2">
+                          <PenTool className="h-4 w-4" strokeWidth={1.5} />
+                          Restrict whiteboard access
+                        </Label>
+                      </div>
                     </div>
                   </div>
                 </div>

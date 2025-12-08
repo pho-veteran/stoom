@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Stage } from "./stage";
@@ -73,6 +73,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
   // Collaboration permissions - must be before useHandRaise to provide canManagePermissions
   const {
     permissions,
+    isLoading: isPermissionsLoading,
     canEditWhiteboard,
     canViewWhiteboard,
     canManagePermissions,
@@ -143,8 +144,12 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
     };
   }, [roomId]);
 
-  // Fetch participant join times from database
+  // Fetch participant join times from database (only once on mount)
+  const participantsFetchedRef = useRef(false);
   useEffect(() => {
+    if (participantsFetchedRef.current) return;
+    participantsFetchedRef.current = true;
+
     const fetchParticipantJoinTimes = async () => {
       try {
         const response = await axios.get(`/api/room/${roomId}/participants`);
@@ -152,7 +157,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
           identity: string;
           joinedAt: string;
         }>;
-        
+
         const joinTimes: Record<string, Date> = {};
         participantsData.forEach((p) => {
           joinTimes[p.identity] = new Date(p.joinedAt);
@@ -164,7 +169,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
     };
 
     fetchParticipantJoinTimes();
-  }, [roomId, participants.length]);
+  }, [roomId]);
 
   const { panels, togglePanel } = usePanelToggle({
     screenShare: false,
@@ -379,7 +384,7 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
             room={room}
             roomId={roomId}
             showScreenShare={panels.screenShare}
-            showWhiteboard={panels.whiteboard && canViewWhiteboard}
+            showWhiteboard={panels.whiteboard && canViewWhiteboard && !isPermissionsLoading}
             showVideoFeeds={panels.videoFeeds}
             layout={layout}
             isLocalSharing={isScreenShareEnabled}

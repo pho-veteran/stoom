@@ -287,6 +287,10 @@ export function Whiteboard({
   const readOnlyRef = useRef(readOnly);
   useEffect(() => {
     readOnlyRef.current = readOnly;
+    // Update editor's readonly state when prop changes
+    if (editorRef.current) {
+      editorRef.current.updateInstanceState({ isReadonly: readOnly });
+    }
   }, [readOnly]);
   
   // Database snapshot state - loaded on mount as fallback
@@ -304,10 +308,13 @@ export function Whiteboard({
   const assetStore = useMemo(() => createAssetStore(roomId), [roomId]);
   
   /**
-   * Load whiteboard snapshot from database on mount
+   * Load whiteboard snapshot from database on mount (only once)
    * This serves as a fallback when no other participants are present to sync from
    */
+  const dbLoadedRef = useRef(false);
   useEffect(() => {
+    if (dbLoadedRef.current) return;
+
     const loadFromDatabase = async () => {
       try {
         const response = await axios.get(`/api/room/${roomId}/whiteboard`);
@@ -323,6 +330,7 @@ export function Whiteboard({
 
     // Only load from DB if no initialSnapshot provided
     if (!initialSnapshot) {
+      dbLoadedRef.current = true;
       loadFromDatabase();
     } else {
       setIsLoadingDb(false);
@@ -390,6 +398,8 @@ export function Whiteboard({
         // Clear conflict resolver since we're loading a fresh state
         conflictResolverRef.current.clear();
         applySnapshot(editor, message.payload.snapshot);
+        // Restore readonly state after applying snapshot (snapshot might reset it)
+        editor.updateInstanceState({ isReadonly: readOnlyRef.current });
         // Save to localStorage for panel toggle persistence during session
         saveLocalSnapshot(roomIdRef.current, message.payload.snapshot);
       } else if (message.action === "sync-request") {
@@ -614,43 +624,46 @@ export function Whiteboard({
         inferDarkMode
       />
 
-      {/* Read-only indicator */}
-      {readOnly && (
-        <div className="absolute bottom-4 left-4 rounded-lg bg-amber-100 px-3 py-1.5 text-sm text-amber-800 border border-amber-200">
-          View only
-        </div>
-      )}
+      {/* Status badges - bottom right with high z-index */}
+      <div className="absolute bottom-4 right-4 z-450 flex flex-col gap-2 items-end">
+        {/* Read-only indicator */}
+        {readOnly && (
+          <div className="rounded-lg bg-amber-100 px-3 py-1.5 text-sm text-amber-800 border border-amber-200">
+            View only
+          </div>
+        )}
 
-      {/* Connection status */}
-      {!isConnected && (
-        <div className="absolute top-4 right-4 rounded-lg bg-red-100 px-3 py-1.5 text-sm text-red-800 border border-red-200">
-          Disconnected
-        </div>
-      )}
+        {/* Connection status */}
+        {!isConnected && (
+          <div className="rounded-lg bg-red-100 px-3 py-1.5 text-sm text-red-800 border border-red-200">
+            Disconnected
+          </div>
+        )}
 
-      {/* Remote save status indicator */}
-      {remoteSaveStatus && (
-        <div className={`absolute bottom-4 right-4 rounded-lg px-3 py-1.5 text-sm border transition-opacity ${
-          remoteSaveStatus.status === 'saving' 
-            ? 'bg-blue-100 text-blue-800 border-blue-200' 
-            : remoteSaveStatus.status === 'saved'
-            ? 'bg-green-100 text-green-800 border-green-200'
-            : 'bg-red-100 text-red-800 border-red-200'
-        }`}>
-          {remoteSaveStatus.status === 'saving' && (
-            <span className="flex items-center gap-2">
-              <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
-              {remoteSaveStatus.senderName} is saving...
-            </span>
-          )}
-          {remoteSaveStatus.status === 'saved' && (
-            <span>✓ Saved by {remoteSaveStatus.senderName}</span>
-          )}
-          {remoteSaveStatus.status === 'error' && (
-            <span>Save failed</span>
-          )}
-        </div>
-      )}
+        {/* Remote save status indicator */}
+        {remoteSaveStatus && (
+          <div className={`rounded-lg px-3 py-1.5 text-sm border transition-opacity ${
+            remoteSaveStatus.status === 'saving' 
+              ? 'bg-blue-100 text-blue-800 border-blue-200' 
+              : remoteSaveStatus.status === 'saved'
+              ? 'bg-green-100 text-green-800 border-green-200'
+              : 'bg-red-100 text-red-800 border-red-200'
+          }`}>
+            {remoteSaveStatus.status === 'saving' && (
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                {remoteSaveStatus.senderName} is saving...
+              </span>
+            )}
+            {remoteSaveStatus.status === 'saved' && (
+              <span>✓ Saved by {remoteSaveStatus.senderName}</span>
+            )}
+            {remoteSaveStatus.status === 'error' && (
+              <span>Save failed</span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

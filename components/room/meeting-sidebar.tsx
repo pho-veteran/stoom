@@ -1120,6 +1120,11 @@ function PermissionsModal({
   const [dbParticipants, setDbParticipants] = useState<DbParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+
+  // Temporary state for pending changes (only saved on confirm)
+  const [tempWhiteboardLevel, setTempWhiteboardLevel] = useState<PermissionLevel>("open");
+  const [tempWhiteboardAllowed, setTempWhiteboardAllowed] = useState<string[]>([]);
+  const [tempCoHosts, setTempCoHosts] = useState<string[]>([]);
   
   // Password management state
   const [hasPassword, setHasPassword] = useState(false);
@@ -1129,10 +1134,18 @@ function PermissionsModal({
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [showPasswordInput, setShowPasswordInput] = useState(false);
 
-  // Fetch participants from database only when modal opens (not on button click)
+  // Initialize temp state from permissions when modal opens
+  useEffect(() => {
+    if (open && permissions) {
+      setTempWhiteboardLevel(permissions.whiteboard);
+      setTempWhiteboardAllowed([...permissions.whiteboardAllowedUsers]);
+      setTempCoHosts([...permissions.coHosts]);
+    }
+  }, [open, permissions]);
+
+  // Fetch participants from database only when modal opens
   useEffect(() => {
     if (!open) {
-      // Reset when modal closes
       setHasFetched(false);
       setPasswordInput("");
       setPasswordError(null);
@@ -1141,7 +1154,6 @@ function PermissionsModal({
       return;
     }
     
-    // Only fetch once when modal opens
     if (hasFetched || isLoading || !roomId) return;
     
     const fetchParticipants = async () => {
@@ -1177,7 +1189,7 @@ function PermissionsModal({
     fetchPasswordStatus();
   }, [open, isHost, roomId]);
 
-  // Handle password update
+  // Handle password update (immediate - not part of confirm flow)
   const handlePasswordUpdate = async (newPassword: string | null) => {
     setIsPasswordLoading(true);
     setPasswordError(null);
@@ -1193,7 +1205,6 @@ function PermissionsModal({
       setPasswordInput("");
       setShowPasswordInput(false);
       
-      // Clear success message after 3 seconds
       setTimeout(() => setPasswordSuccess(null), 3000);
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data?.error) {
@@ -1204,6 +1215,96 @@ function PermissionsModal({
     } finally {
       setIsPasswordLoading(false);
     }
+  };
+
+  // Handle confirm - close immediately and save async with toast
+  const handleConfirm = () => {
+    if (!permissions) {
+      onOpenChange(false);
+      return;
+    }
+
+    // Check what changed
+    const whiteboardLevelChanged = tempWhiteboardLevel !== permissions.whiteboard;
+    const whiteboardAllowedChanged =
+      JSON.stringify([...tempWhiteboardAllowed].sort()) !==
+      JSON.stringify([...permissions.whiteboardAllowedUsers].sort());
+    const coHostsChanged =
+      JSON.stringify([...tempCoHosts].sort()) !==
+      JSON.stringify([...permissions.coHosts].sort());
+
+    const hasChanges = whiteboardLevelChanged || whiteboardAllowedChanged || coHostsChanged;
+
+    // Close modal immediately
+    onOpenChange(false);
+
+    // If no changes, don't do anything
+    if (!hasChanges) return;
+
+    // Save changes async and toast result
+    const saveChanges = async () => {
+      try {
+        if (whiteboardLevelChanged) {
+          await onUpdatePermissions?.({ whiteboard: tempWhiteboardLevel });
+        }
+
+        if (whiteboardAllowedChanged) {
+          const added = tempWhiteboardAllowed.filter(
+            (u) => !permissions.whiteboardAllowedUsers.includes(u)
+          );
+          const removed = permissions.whiteboardAllowedUsers.filter(
+            (u) => !tempWhiteboardAllowed.includes(u)
+          );
+
+          for (const userId of added) {
+            await onGrantWhiteboardAccess?.(userId);
+          }
+          for (const userId of removed) {
+            await onRevokeWhiteboardAccess?.(userId);
+          }
+        }
+
+        if (coHostsChanged) {
+          const added = tempCoHosts.filter((u) => !permissions.coHosts.includes(u));
+          const removed = permissions.coHosts.filter((u) => !tempCoHosts.includes(u));
+
+          for (const userId of added) {
+            await onGrantCoHost?.(userId);
+          }
+          for (const userId of removed) {
+            await onRevokeCoHost?.(userId);
+          }
+        }
+
+        toast.success("Settings saved");
+      } catch (error) {
+        console.error("Failed to save settings:", error);
+        toast.error("Failed to save settings");
+      }
+    };
+
+    saveChanges();
+  };
+
+  // Temp state handlers (async to match ParticipantSelector interface)
+  const handleTempAddWhiteboardAccess = async (userId: string) => {
+    if (!tempWhiteboardAllowed.includes(userId)) {
+      setTempWhiteboardAllowed([...tempWhiteboardAllowed, userId]);
+    }
+  };
+
+  const handleTempRemoveWhiteboardAccess = async (userId: string) => {
+    setTempWhiteboardAllowed(tempWhiteboardAllowed.filter(u => u !== userId));
+  };
+
+  const handleTempAddCoHost = async (userId: string) => {
+    if (!tempCoHosts.includes(userId)) {
+      setTempCoHosts([...tempCoHosts, userId]);
+    }
+  };
+
+  const handleTempRemoveCoHost = async (userId: string) => {
+    setTempCoHosts(tempCoHosts.filter(u => u !== userId));
   };
 
   // Convert DB participants to SimpleParticipant format, excluding current user and host
@@ -1245,9 +1346,9 @@ function PermissionsModal({
               <p className="text-xs text-muted-foreground">Co-hosts can end the meeting and manage permissions</p>
               <ParticipantSelector
                 participants={participantsForSelector}
-                selectedUsers={permissions?.coHosts || []}
-                onSelect={onGrantCoHost}
-                onRemove={onRevokeCoHost}
+                selectedUsers={tempCoHosts}
+                onSelect={handleTempAddCoHost}
+                onRemove={handleTempRemoveCoHost}
                 placeholder="Add co-host..."
                 emptyText="No participants available"
                 badgeVariant="amber"
@@ -1369,15 +1470,15 @@ function PermissionsModal({
               <Label className="text-sm font-medium">Whiteboard Access</Label>
             </div>
             <div className="flex gap-2">
-              <PermissionButton level="open" currentLevel={permissions?.whiteboard || "open"} onClick={() => onUpdatePermissions?.({ whiteboard: "open" })} label="Everyone" />
-              <PermissionButton level="restricted" currentLevel={permissions?.whiteboard || "open"} onClick={() => onUpdatePermissions?.({ whiteboard: "restricted" })} label="Restricted" />
+              <PermissionButton level="open" currentLevel={tempWhiteboardLevel} onClick={() => setTempWhiteboardLevel("open")} label="Everyone" />
+              <PermissionButton level="restricted" currentLevel={tempWhiteboardLevel} onClick={() => setTempWhiteboardLevel("restricted")} label="Restricted" />
             </div>
-            {permissions?.whiteboard === "restricted" && (
+            {tempWhiteboardLevel === "restricted" && (
               <ParticipantSelector
                 participants={participantsForSelector}
-                selectedUsers={permissions.whiteboardAllowedUsers}
-                onSelect={onGrantWhiteboardAccess}
-                onRemove={onRevokeWhiteboardAccess}
+                selectedUsers={tempWhiteboardAllowed}
+                onSelect={handleTempAddWhiteboardAccess}
+                onRemove={handleTempRemoveWhiteboardAccess}
                 placeholder="Add participant..."
                 emptyText="No participants available"
               />
@@ -1385,8 +1486,13 @@ function PermissionsModal({
           </div>
         </div>
         )}
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>Done</Button>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirm} className="bg-violet-600 hover:bg-violet-700">
+            Confirm
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

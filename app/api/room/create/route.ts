@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, password } = body
+    const { name, password, whiteboardPermission } = body
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "Room name is required" }, { status: 400 })
@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         password: hashedPassword,
         ownerId: user.id,
+        whiteboardPermission: whiteboardPermission || "open",
       },
     })
 

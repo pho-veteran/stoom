@@ -10,7 +10,7 @@
  * Requirements: 8.6, 8.7
  */
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { Room } from "livekit-client";
 import axios from "axios";
 import {
@@ -51,6 +51,7 @@ export interface UseCollaborationPermissionsOptions {
 export interface UseCollaborationPermissionsReturnExtended {
   permissions: CollaborationPermissions;
   userRole: UserRole;
+  isLoading: boolean;
   canEditWhiteboard: boolean;
   canEditNotes: boolean;
   canViewWhiteboard: boolean;
@@ -66,6 +67,7 @@ export interface UseCollaborationPermissionsReturnExtended {
   grantCoHost: (userId: string) => Promise<void>;
   revokeCoHost: (userId: string) => Promise<void>;
   handlePermissionUpdate: (message: PermissionUpdateMessage) => void;
+  refreshPermissions: () => Promise<void>;
 }
 
 export function useCollaborationPermissions(
@@ -78,41 +80,49 @@ export function useCollaborationPermissions(
   const [permissions, setPermissions] = useState<CollaborationPermissions>(
     () => initialPermissions ?? DEFAULT_PERMISSIONS
   );
-  const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const loadedRef = useRef(false);
 
   /**
-   * Load permissions from database on mount
+   * Fetch permissions from database
+   */
+  const fetchPermissionsFromDb = useCallback(async () => {
+    if (!roomId) return;
+
+    try {
+      // Load permissions and co-hosts in parallel
+      const [permResponse, coHostResponse] = await Promise.all([
+        axios.get(`/api/room/${roomId}/permissions`),
+        axios.get(`/api/room/${roomId}/cohost`),
+      ]);
+
+      const { permissions: dbPerms } = permResponse.data;
+      const { coHosts } = coHostResponse.data;
+
+      setPermissions((prev) => ({
+        ...prev,
+        whiteboard: (dbPerms?.whiteboardPermission as PermissionLevel) || prev.whiteboard,
+        notes: (dbPerms?.notesPermission as PermissionLevel) || prev.notes,
+        whiteboardAllowedUsers: dbPerms?.whiteboardAllowedUsers || prev.whiteboardAllowedUsers,
+        notesAllowedUsers: dbPerms?.notesAllowedUsers || prev.notesAllowedUsers,
+        coHosts: coHosts || prev.coHosts,
+      }));
+    } catch (error) {
+      console.error("Failed to load permissions:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [roomId]);
+
+  /**
+   * Load permissions from database on mount (only once)
    */
   useEffect(() => {
-    if (hasLoadedFromDb || !roomId) return;
+    if (loadedRef.current || !roomId) return;
+    loadedRef.current = true;
 
-    const loadPermissions = async () => {
-      try {
-        // Load permissions
-        const permResponse = await axios.get(`/api/room/${roomId}/permissions`);
-        const { permissions: dbPerms } = permResponse.data;
-
-        // Load co-hosts
-        const coHostResponse = await axios.get(`/api/room/${roomId}/cohost`);
-        const { coHosts } = coHostResponse.data;
-
-        setPermissions((prev) => ({
-          ...prev,
-          whiteboard: (dbPerms?.whiteboardPermission as PermissionLevel) || prev.whiteboard,
-          notes: (dbPerms?.notesPermission as PermissionLevel) || prev.notes,
-          whiteboardAllowedUsers: dbPerms?.whiteboardAllowedUsers || prev.whiteboardAllowedUsers,
-          notesAllowedUsers: dbPerms?.notesAllowedUsers || prev.notesAllowedUsers,
-          coHosts: coHosts || prev.coHosts,
-        }));
-        setHasLoadedFromDb(true);
-      } catch (error) {
-        console.error("Failed to load permissions:", error);
-        setHasLoadedFromDb(true); // Mark as loaded to prevent retry loop
-      }
-    };
-
-    loadPermissions();
-  }, [roomId, hasLoadedFromDb]);
+    fetchPermissionsFromDb();
+  }, [roomId, fetchPermissionsFromDb]);
 
   /**
    * Save permissions to database
@@ -222,16 +232,19 @@ export function useCollaborationPermissions(
         return;
       }
 
-      // Update local state - add user to allowed list if not already present
-      setPermissions((prev) => {
-        if (prev.whiteboardAllowedUsers.includes(targetUserId)) {
-          return prev;
-        }
-        return {
-          ...prev,
-          whiteboardAllowedUsers: [...prev.whiteboardAllowedUsers, targetUserId],
-        };
-      });
+      // Calculate new list
+      const newAllowed = permissions.whiteboardAllowedUsers.includes(targetUserId)
+        ? permissions.whiteboardAllowedUsers
+        : [...permissions.whiteboardAllowedUsers, targetUserId];
+
+      // Update local state
+      setPermissions((prev) => ({
+        ...prev,
+        whiteboardAllowedUsers: newAllowed,
+      }));
+
+      // Save to DB first
+      await savePermissionsToDb({ whiteboardAllowedUsers: newAllowed });
 
       // Broadcast grant message
       const message: PermissionUpdateMessage = {
@@ -245,17 +258,8 @@ export function useCollaborationPermissions(
         },
       };
       await broadcastPermissionMessage(message);
-
-      // Save to DB - get updated list
-      setPermissions((prev) => {
-        const newAllowed = prev.whiteboardAllowedUsers.includes(targetUserId)
-          ? prev.whiteboardAllowedUsers
-          : [...prev.whiteboardAllowedUsers, targetUserId];
-        savePermissionsToDb({ whiteboardAllowedUsers: newAllowed });
-        return prev;
-      });
     },
-    [userCanManagePermissions, userId, broadcastPermissionMessage, savePermissionsToDb]
+    [userCanManagePermissions, userId, permissions.whiteboardAllowedUsers, broadcastPermissionMessage, savePermissionsToDb]
   );
 
   /**
@@ -269,13 +273,17 @@ export function useCollaborationPermissions(
         return;
       }
 
-      // Update local state - remove user from allowed list
+      // Calculate new list
+      const newAllowed = permissions.whiteboardAllowedUsers.filter((id) => id !== targetUserId);
+
+      // Update local state
       setPermissions((prev) => ({
         ...prev,
-        whiteboardAllowedUsers: prev.whiteboardAllowedUsers.filter(
-          (id) => id !== targetUserId
-        ),
+        whiteboardAllowedUsers: newAllowed,
       }));
+
+      // Save to DB first
+      await savePermissionsToDb({ whiteboardAllowedUsers: newAllowed });
 
       // Broadcast revoke message
       const message: PermissionUpdateMessage = {
@@ -289,15 +297,8 @@ export function useCollaborationPermissions(
         },
       };
       await broadcastPermissionMessage(message);
-
-      // Save to DB - get updated list
-      setPermissions((prev) => {
-        const newAllowed = prev.whiteboardAllowedUsers.filter((id) => id !== targetUserId);
-        savePermissionsToDb({ whiteboardAllowedUsers: newAllowed });
-        return prev;
-      });
     },
-    [userCanManagePermissions, userId, broadcastPermissionMessage, savePermissionsToDb]
+    [userCanManagePermissions, userId, permissions.whiteboardAllowedUsers, broadcastPermissionMessage, savePermissionsToDb]
   );
 
   /**
@@ -458,12 +459,14 @@ export function useCollaborationPermissions(
 
   /**
    * Handle incoming permission update messages
+   * Updates local state from the broadcast message (no DB fetch needed)
    */
   const handlePermissionUpdate = useCallback(
     (message: PermissionUpdateMessage) => {
       const { action, payload } = message;
       const { feature, permissionLevel, targetUserId } = payload;
 
+      // Update local state from the broadcast message
       setPermissions((prev) => {
         switch (action) {
           case "update":
@@ -538,22 +541,28 @@ export function useCollaborationPermissions(
 
   // Compute derived permission states
   const userRole = getUserRole(userId, isHost, permissions.coHosts);
-  
-  const canEditWhiteboard = canUserEdit(
-    userId,
-    isHost,
-    permissions.whiteboard,
-    permissions.whiteboardAllowedUsers,
-    permissions.coHosts
-  );
 
-  const canEditNotes = canUserEdit(
-    userId,
-    isHost,
-    permissions.notes,
-    permissions.notesAllowedUsers,
-    permissions.coHosts
-  );
+  // While loading, default to restrictive permissions (false for edit)
+  // This prevents showing edit UI before we know the actual permissions
+  const canEditWhiteboard = isLoading
+    ? false
+    : canUserEdit(
+        userId,
+        isHost,
+        permissions.whiteboard,
+        permissions.whiteboardAllowedUsers,
+        permissions.coHosts
+      );
+
+  const canEditNotes = isLoading
+    ? false
+    : canUserEdit(
+        userId,
+        isHost,
+        permissions.notes,
+        permissions.notesAllowedUsers,
+        permissions.coHosts
+      );
 
   const canViewWhiteboard = canUserView();
   const canViewNotes = canUserView();
@@ -563,6 +572,7 @@ export function useCollaborationPermissions(
   return {
     permissions,
     userRole,
+    isLoading,
     canEditWhiteboard,
     canEditNotes,
     canViewWhiteboard,
@@ -577,7 +587,7 @@ export function useCollaborationPermissions(
     revokeNotesAccess,
     grantCoHost,
     revokeCoHost,
-    // Expose handler for external use (e.g., from useCollaborationSync)
     handlePermissionUpdate,
+    refreshPermissions: fetchPermissionsFromDb,
   };
 }

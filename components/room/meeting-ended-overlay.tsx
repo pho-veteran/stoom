@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { XCircle } from "lucide-react"
+import { XCircle, UserMinus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface MeetingEndedOverlayProps {
   hostName?: string
+  /** If true, shows "removed from meeting" message instead of "meeting ended" */
+  wasKicked?: boolean
 }
 
-export function MeetingEndedOverlay({ hostName }: MeetingEndedOverlayProps) {
+export function MeetingEndedOverlay({ hostName, wasKicked = false }: MeetingEndedOverlayProps) {
   const router = useRouter()
   const [countdown, setCountdown] = useState(5)
 
@@ -31,13 +33,27 @@ export function MeetingEndedOverlay({ hostName }: MeetingEndedOverlayProps) {
     <div className="fixed inset-0 z-700 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="mx-4 max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-          <XCircle className="h-8 w-8 text-red-600" strokeWidth={1.5} />
+          {wasKicked ? (
+            <UserMinus className="h-8 w-8 text-red-600" strokeWidth={1.5} />
+          ) : (
+            <XCircle className="h-8 w-8 text-red-600" strokeWidth={1.5} />
+          )}
         </div>
 
-        <h2 className="mb-2 text-2xl font-bold text-slate-900">Meeting Ended</h2>
+        <h2 className="mb-2 text-2xl font-bold text-slate-900">
+          {wasKicked ? "Removed from Meeting" : "Meeting Ended"}
+        </h2>
 
         <p className="mb-6 text-slate-600">
-          {hostName ? (
+          {wasKicked ? (
+            hostName ? (
+              <>
+                You have been removed from the meeting by <span className="font-semibold">{hostName}</span>.
+              </>
+            ) : (
+              "You have been removed from the meeting by the host."
+            )
+          ) : hostName ? (
             <>
               <span className="font-semibold">{hostName}</span> has ended the meeting for everyone.
             </>
@@ -55,7 +71,7 @@ export function MeetingEndedOverlay({ hostName }: MeetingEndedOverlayProps) {
           onClick={() => router.push("/dashboard")}
           className="w-full bg-violet-600 hover:bg-violet-700"
         >
-          Go to Dashboard Now
+          Return to Dashboard
         </Button>
       </div>
     </div>

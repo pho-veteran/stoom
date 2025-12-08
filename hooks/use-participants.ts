@@ -9,15 +9,19 @@ import {
   Track,
 } from "livekit-client";
 
+export type ParticipantRole = 'HOST' | 'CO_HOST' | 'PARTICIPANT';
+
 export interface ParticipantInfo {
   identity: string;
   name: string;
   imageUrl: string | null;
+  role: ParticipantRole;
   isSpeaking: boolean;
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
   isLocal: boolean;
   participant: Participant;
+  joinedAt?: Date;
 }
 
 export interface UseParticipantsReturn {
@@ -34,12 +38,14 @@ export function useParticipants(room: Room | null): UseParticipantsReturn {
     const audioPublication = participant.getTrackPublication(Track.Source.Microphone);
     const videoPublication = participant.getTrackPublication(Track.Source.Camera);
 
-    // Parse metadata to get imageUrl
+    // Parse metadata to get imageUrl and role
     let imageUrl: string | null = null;
+    let role: ParticipantRole = 'PARTICIPANT';
     try {
       if (participant.metadata) {
         const metadata = JSON.parse(participant.metadata);
         imageUrl = metadata.imageUrl || null;
+        role = metadata.role || 'PARTICIPANT';
       }
     } catch {
       // Ignore JSON parse errors
@@ -49,6 +55,7 @@ export function useParticipants(room: Room | null): UseParticipantsReturn {
       identity: participant.identity,
       name: participant.name || participant.identity,
       imageUrl,
+      role,
       isSpeaking: participant.isSpeaking,
       isAudioEnabled: !!audioPublication?.track && !audioPublication.isMuted,
       isVideoEnabled: !!videoPublication?.track && !videoPublication.isMuted,

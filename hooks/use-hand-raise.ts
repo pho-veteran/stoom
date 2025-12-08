@@ -40,6 +40,7 @@ export interface UseHandRaiseOptions {
   participantId: string;
   participantName: string;
   isHost: boolean;
+  canManageParticipants?: boolean; // Host or co-host can manage hands
   room: Room | null;
 }
 
@@ -71,7 +72,10 @@ export interface UseHandRaiseReturn {
  */
 export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { roomId, participantId, participantName, isHost, room } = options;
+  const { roomId, participantId, participantName, isHost, canManageParticipants, room } = options;
+  
+  // Use canManageParticipants if provided, otherwise fall back to isHost
+  const canManageHands = canManageParticipants ?? isHost;
 
   // In-memory hand raise state map
   const [handRaiseMap, setHandRaiseMap] = useState<Map<string, HandRaiseState>>(
@@ -193,7 +197,7 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
    */
   const lowerParticipantHand = useCallback(
     (targetParticipantId: string) => {
-      if (!room || !isHost) return;
+      if (!room || !canManageHands) return;
 
       // Remove from local state
       setHandRaiseMap((prev) => {
@@ -206,7 +210,7 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
       const message = createHostLowerHandMessage(targetParticipantId, participantId);
       broadcastMessage(message);
     },
-    [room, isHost, participantId, broadcastMessage]
+    [room, canManageHands, participantId, broadcastMessage]
   );
 
   /**
@@ -214,7 +218,7 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
    * Requirements: 4.1, 4.2, 4.3
    */
   const lowerAllHands = useCallback(() => {
-    if (!room || !isHost) return;
+    if (!room || !canManageHands) return;
 
     // Clear all hand raise state
     setHandRaiseMap(new Map());
@@ -222,7 +226,7 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
     // Broadcast lower-all message
     const message = createLowerAllHandsMessage(participantId);
     broadcastMessage(message);
-  }, [room, isHost, participantId, broadcastMessage]);
+  }, [room, canManageHands, participantId, broadcastMessage]);
 
   /**
    * Handle incoming hand raise messages
@@ -262,7 +266,7 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
           });
 
           // Requirements: 2.5 - Show notification to hosts/co-hosts only
-          if (isHost) {
+          if (canManageHands) {
             toast.info(`${message.payload.participantName || "A participant"} raised their hand`);
           }
         } else if (message.action === "lower") {
@@ -322,7 +326,7 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
     return () => {
       room.off(RoomEvent.DataReceived, handleDataReceived);
     };
-  }, [room, participantId, isHost, broadcastMessage]);
+  }, [room, participantId, canManageHands, broadcastMessage]);
 
   /**
    * Request sync when joining or reconnecting to the room

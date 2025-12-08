@@ -36,6 +36,7 @@ interface RoomContentProps {
   initialMicEnabled?: boolean;
   initialVideoEnabled?: boolean;
   isHost?: boolean;
+  password?: string;
 }
 
 const STORAGE_KEY = "stoom-panel-sizes";
@@ -49,6 +50,8 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
     isScreenShareEnabled,
     currentScreenSharer,
     meetingEndedBy,
+    wasKicked,
+    kickedBy,
     toggleMicrophone,
     toggleCamera,
     toggleScreenShare,
@@ -58,29 +61,16 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
   } = useRoomControls();
 
   const { participants } = useRoomParticipants();
+  
+  // Store participant join times from database
+  const [participantJoinTimes, setParticipantJoinTimes] = useState<Record<string, Date>>({});
   const chat = useChat(room, roomId);
 
   // Collaboration permissions
   const userId = localParticipant?.identity || "";
   const participantName = localParticipant?.name || userId;
 
-  // Hand raise state
-  const {
-    isHandRaised,
-    handRaiseQueue,
-    handRaiseCount,
-    toggleHandRaise,
-    lowerParticipantHand,
-    lowerAllHands,
-    isConnected: handRaiseConnected,
-    screenReaderAnnouncement,
-  } = useHandRaise({
-    roomId,
-    participantId: userId,
-    participantName,
-    isHost,
-    room,
-  });
+  // Collaboration permissions - must be before useHandRaise to provide canManagePermissions
   const {
     permissions,
     canEditWhiteboard,
@@ -98,6 +88,25 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
     roomId,
     userId,
     isHost,
+  });
+
+  // Hand raise state - uses canManagePermissions so co-hosts can also manage hands
+  const {
+    isHandRaised,
+    handRaiseQueue,
+    handRaiseCount,
+    toggleHandRaise,
+    lowerParticipantHand,
+    lowerAllHands,
+    isConnected: handRaiseConnected,
+    screenReaderAnnouncement,
+  } = useHandRaise({
+    roomId,
+    participantId: userId,
+    participantName,
+    isHost,
+    canManageParticipants: canManagePermissions,
+    room,
   });
 
   // Remote save status state (from other host/co-host)
@@ -133,6 +142,29 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
       clearWhiteboardStorage(roomId);
     };
   }, [roomId]);
+
+  // Fetch participant join times from database
+  useEffect(() => {
+    const fetchParticipantJoinTimes = async () => {
+      try {
+        const response = await axios.get(`/api/room/${roomId}/participants`);
+        const participantsData = response.data.participants as Array<{
+          identity: string;
+          joinedAt: string;
+        }>;
+        
+        const joinTimes: Record<string, Date> = {};
+        participantsData.forEach((p) => {
+          joinTimes[p.identity] = new Date(p.joinedAt);
+        });
+        setParticipantJoinTimes(joinTimes);
+      } catch (error) {
+        console.error("Failed to fetch participant join times:", error);
+      }
+    };
+
+    fetchParticipantJoinTimes();
+  }, [roomId, participants.length]);
 
   const { panels, togglePanel } = usePanelToggle({
     screenShare: false,
@@ -237,12 +269,14 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
 
   // Map participants to the format expected by MeetingSidebar
   const participantInfos = participants.map((p) => {
-    // Parse metadata to get imageUrl
+    // Parse metadata to get imageUrl and role
     let imageUrl: string | null = null;
+    let role: 'HOST' | 'CO_HOST' | 'PARTICIPANT' = 'PARTICIPANT';
     try {
       if (p.metadata) {
         const metadata = JSON.parse(p.metadata);
         imageUrl = metadata.imageUrl || null;
+        role = metadata.role || 'PARTICIPANT';
       }
     } catch {
       // Ignore JSON parse errors
@@ -252,11 +286,13 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
       identity: p.identity,
       name: p.name || p.identity,
       imageUrl,
+      role,
       isSpeaking: p.isSpeaking,
       isAudioEnabled: p.isMicrophoneEnabled,
       isVideoEnabled: p.isCameraEnabled,
       isLocal: p.isLocal,
       participant: p,
+      joinedAt: participantJoinTimes[p.identity],
     };
   });
 
@@ -274,8 +310,9 @@ function RoomContentInner({ roomId, isHost = false }: { roomId: string; isHost?:
         {screenReaderAnnouncement}
       </div>
 
-      {/* Meeting Ended Overlay */}
+      {/* Meeting Ended Overlay - shows when meeting ends or user is kicked */}
       {meetingEndedBy && <MeetingEndedOverlay hostName={meetingEndedBy} />}
+      {wasKicked && <MeetingEndedOverlay hostName={kickedBy || undefined} wasKicked={true} />}
 
       {/* Meeting Sidebar - combines participants, controls, and panel toggles */}
       <MeetingSidebar
@@ -383,6 +420,7 @@ export function RoomContent({
   initialMicEnabled = true,
   initialVideoEnabled = true,
   isHost = false,
+  password,
 }: RoomContentProps) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -395,17 +433,24 @@ export function RoomContent({
       try {
         const response = await axios.post<{ token: string }>("/api/livekit/token", {
           roomName: roomId,
+          password, // Pass password for validation (Requirement 3.5)
         });
         setToken(response.data.token);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error("Failed to connect"));
+        if (axios.isAxiosError(err) && err.response?.data?.code === "INVALID_PASSWORD") {
+          setError(new Error("Incorrect password. Please try again."));
+        } else if (axios.isAxiosError(err) && err.response?.data?.code === "PASSWORD_REQUIRED") {
+          setError(new Error("This room requires a password."));
+        } else {
+          setError(err instanceof Error ? err : new Error("Failed to connect"));
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     getToken();
-  }, [roomId]);
+  }, [roomId, password]);
 
   if (isLoading) {
     return (

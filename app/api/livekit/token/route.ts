@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { AccessToken } from "livekit-server-sdk"
 import { auth, currentUser } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
+import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     const user = await currentUser()
     const body = await request.json()
-    const { roomName } = body
+    const { roomName, password } = body
 
     if (!roomName) {
       return NextResponse.json({ error: "Room name is required" }, { status: 400 })
@@ -53,10 +54,53 @@ export async function POST(request: NextRequest) {
       where: { code: roomName },
     })
 
+    // Validate password if room has one (Requirement 3.5)
+    // Host is exempt from password check
+    if (room && room.password) {
+      const isHost = room.ownerId === dbUser.id
+      
+      if (!isHost) {
+        // Non-host must provide correct password
+        if (!password) {
+          return NextResponse.json(
+            { error: "Password required", code: "PASSWORD_REQUIRED" },
+            { status: 401 }
+          )
+        }
+        
+        const isValidPassword = await bcrypt.compare(password, room.password)
+        if (!isValidPassword) {
+          return NextResponse.json(
+            { error: "Incorrect password", code: "INVALID_PASSWORD" },
+            { status: 401 }
+          )
+        }
+      }
+    }
+
+    // Determine participant role
+    let participantRole: "HOST" | "CO_HOST" | "PARTICIPANT" = "PARTICIPANT"
+    
     if (room) {
       // Create or update participant record when token is generated
       // This ensures participants are recorded even if webhooks fail
       const isHost = room.ownerId === dbUser.id
+      
+      // Check if user is already a co-host
+      const existingParticipant = await prisma.roomParticipant.findUnique({
+        where: {
+          userId_roomId: {
+            userId: dbUser.id,
+            roomId: room.id,
+          },
+        },
+      })
+      
+      if (isHost) {
+        participantRole = "HOST"
+      } else if (existingParticipant?.role === "CO_HOST") {
+        participantRole = "CO_HOST"
+      }
       
       await prisma.roomParticipant.upsert({
         where: {
@@ -95,6 +139,7 @@ export async function POST(request: NextRequest) {
       ttl: "6h",
       metadata: JSON.stringify({
         imageUrl: user?.imageUrl || null,
+        role: participantRole,
       }),
     })
 

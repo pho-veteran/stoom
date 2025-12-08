@@ -15,6 +15,7 @@ interface RoomPageProps {
 interface MediaSettings {
   micEnabled: boolean;
   videoEnabled: boolean;
+  password?: string;
 }
 
 interface RoomInfo {
@@ -144,6 +145,7 @@ export default function RoomPage({ params }: RoomPageProps) {
       initialMicEnabled={mediaSettings.micEnabled}
       initialVideoEnabled={mediaSettings.videoEnabled}
       isHost={roomInfo?.isHost}
+      password={mediaSettings.password}
     />
   );
 }

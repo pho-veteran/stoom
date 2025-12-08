@@ -61,6 +61,8 @@ export function useRoomControls() {
   const [isCameraEnabled, setIsCameraEnabled] = useState(false);
   const [isScreenShareEnabled, setIsScreenShareEnabled] = useState(false);
   const [meetingEndedBy, setMeetingEndedBy] = useState<string | null>(null);
+  const [wasKicked, setWasKicked] = useState(false);
+  const [kickedBy, setKickedBy] = useState<string | null>(null);
 
   // Find who is currently screen sharing
   const currentScreenSharer = participants.find(
@@ -111,6 +113,19 @@ export function useRoomControls() {
             (p) => p.identity === message.endedBy
           )?.name || message.endedBy;
           setMeetingEndedBy(hostName || "Host");
+        }
+
+        if (message.type === "PARTICIPANT_KICKED") {
+          // Check if this message is for the current user
+          if (message.kickedIdentity === localParticipant?.identity) {
+            const kickerName = participants.find(
+              (p) => p.identity === message.kickedBy
+            )?.name || message.kickedBy;
+            setWasKicked(true);
+            setKickedBy(kickerName || "Host");
+            // Disconnect from the room
+            room?.disconnect();
+          }
         }
       } catch {
         // Ignore non-JSON messages (could be chat messages)
@@ -186,6 +201,8 @@ export function useRoomControls() {
     isScreenShareEnabled,
     currentScreenSharer,
     meetingEndedBy,
+    wasKicked,
+    kickedBy,
     toggleMicrophone,
     toggleCamera,
     toggleScreenShare,

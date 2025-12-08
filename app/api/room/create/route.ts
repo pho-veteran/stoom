@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
+import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +15,14 @@ export async function POST(request: NextRequest) {
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "Room name is required" }, { status: 400 })
+    }
+
+    // Validate password if provided (minimum 4 characters)
+    if (password && password.length < 4) {
+      return NextResponse.json(
+        { error: "Password must be at least 4 characters" },
+        { status: 400 }
+      )
     }
 
     // Find or create user
@@ -43,12 +52,19 @@ export async function POST(request: NextRequest) {
       existingRoom = await prisma.room.findUnique({ where: { code } })
     }
 
+    // Hash password if provided
+    let hashedPassword: string | null = null
+    if (password) {
+      const salt = await bcrypt.genSalt(10)
+      hashedPassword = await bcrypt.hash(password, salt)
+    }
+
     // Create room
     const room = await prisma.room.create({
       data: {
         code,
         name: name.trim(),
-        password: password || null,
+        password: hashedPassword,
         ownerId: user.id,
       },
     })

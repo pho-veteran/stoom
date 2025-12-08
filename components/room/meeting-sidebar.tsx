@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import {
   Mic,
   MicOff,
@@ -31,6 +33,9 @@ import {
   Shield,
   Hand,
   Grab,
+  Search,
+  UserMinus,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,6 +65,7 @@ import type { HandRaiseState } from "@/lib/hand-raise-types";
 import { HandRaiseButton } from "./hand-raise-button";
 import { ParticipantHandRaiseIndicator } from "./participant-hand-raise-indicator";
 import { HandRaiseControls } from "./hand-raise-controls";
+import { ParticipantCard } from "./participant-card";
 
 interface MeetingSidebarProps {
   roomId: string;
@@ -117,6 +123,8 @@ interface MeetingSidebarProps {
   onRevokeCoHost?: (userId: string) => Promise<void>;
   // Whiteboard visibility
   canViewWhiteboard?: boolean;
+  // Kick participant
+  onKickParticipant?: (participantIdentity: string) => void;
 }
 
 
@@ -169,6 +177,7 @@ export function MeetingSidebar({
   onGrantCoHost,
   onRevokeCoHost,
   canViewWhiteboard = true,
+  onKickParticipant,
 }: MeetingSidebarProps) {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -178,9 +187,47 @@ export function MeetingSidebar({
   const [showEndMeetingModal, setShowEndMeetingModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  // Kick confirmation dialog state
+  const [showKickDialog, setShowKickDialog] = useState(false);
+  const [kickTargetParticipant, setKickTargetParticipant] = useState<{ identity: string; name: string } | null>(null);
+  const [isKicking, setIsKicking] = useState(false);
 
   const displayTitle = meetingTitle || "Study Session";
   const roomCode = roomId || "------";
+
+  // Sort participants: host first, then co-hosts alphabetically, then participants alphabetically
+  const sortedParticipants = useMemo(() => {
+    return [...participants].sort((a, b) => {
+      // Host always first
+      if (a.role === 'HOST') return -1;
+      if (b.role === 'HOST') return 1;
+      
+      // Co-hosts second (alphabetically among themselves)
+      if (a.role === 'CO_HOST' && b.role !== 'CO_HOST') return -1;
+      if (b.role === 'CO_HOST' && a.role !== 'CO_HOST') return 1;
+      if (a.role === 'CO_HOST' && b.role === 'CO_HOST') {
+        return a.name.localeCompare(b.name);
+      }
+      
+      // Regular participants alphabetically
+      return a.name.localeCompare(b.name);
+    });
+  }, [participants]);
+
+  // Filter participants based on search query (case-insensitive substring matching)
+  const filteredParticipants = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return sortedParticipants;
+    }
+    const query = searchQuery.toLowerCase();
+    return sortedParticipants.filter((participant) =>
+      participant.name.toLowerCase().includes(query)
+    );
+  }, [sortedParticipants, searchQuery]);
+
+  // Show search input only when participant count > 5
+  const showSearchInput = participants.length > 5;
 
   const handleCopyCode = async () => {
     if (roomId) {
@@ -217,6 +264,36 @@ export function MeetingSidebar({
     } finally {
       setIsLeaving(false);
       setShowEndMeetingModal(false);
+    }
+  };
+
+  // Handler to initiate kick - shows confirmation dialog
+  const handleInitiateKick = (participantIdentity: string) => {
+    const participant = participants.find((p) => p.identity === participantIdentity);
+    if (participant) {
+      setKickTargetParticipant({ identity: participantIdentity, name: participant.name });
+      setShowKickDialog(true);
+    }
+  };
+
+  // Handler to confirm and execute kick
+  const handleConfirmKick = async () => {
+    if (!kickTargetParticipant) return;
+    
+    setIsKicking(true);
+    try {
+      await axios.post(`/api/room/${roomId}/kick`, {
+        participantIdentity: kickTargetParticipant.identity,
+      });
+      toast.success(`${kickTargetParticipant.name} has been removed from the meeting`);
+      onKickParticipant?.(kickTargetParticipant.identity);
+    } catch (error) {
+      console.error("Error kicking participant:", error);
+      toast.error("Failed to remove participant. Please try again.");
+    } finally {
+      setIsKicking(false);
+      setShowKickDialog(false);
+      setKickTargetParticipant(null);
     }
   };
 
@@ -470,11 +547,28 @@ export function MeetingSidebar({
                 </Tooltip>
               </TooltipProvider>
             )}
+            {/* Total participant count badge - always shows total count regardless of filter */}
             <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-violet-100 px-2 text-xs font-semibold text-violet-600">
               {participants.length}
             </span>
           </div>
         </div>
+
+        {/* Search input - only shown when participant count > 5 */}
+        {showSearchInput && (
+          <div className="px-3 py-2 border-b border-slate-100">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" strokeWidth={2} />
+              <Input
+                type="text"
+                placeholder="Search participants..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-3">
           {participants.length === 0 ? (
@@ -485,9 +579,18 @@ export function MeetingSidebar({
               <p className="text-sm font-medium text-slate-500">No participants yet</p>
               <p className="text-xs text-slate-400 mt-1">Share the room code</p>
             </div>
+          ) : filteredParticipants.length === 0 ? (
+            /* Empty state when search has no matches */
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 mb-3">
+                <Search className="h-6 w-6 text-slate-400" strokeWidth={1.5} />
+              </div>
+              <p className="text-sm font-medium text-slate-500">No matches found</p>
+              <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
+            </div>
           ) : (
             <div className="space-y-1">
-              {participants.map((participant) => {
+              {filteredParticipants.map((participant) => {
                 const isActive = activeSpeaker?.identity === participant.identity || participant.isSpeaking;
                 
                 // Find hand raise state for this participant
@@ -498,80 +601,105 @@ export function MeetingSidebar({
                   ? handRaiseQueue.indexOf(handRaiseState) + 1
                   : undefined;
                 
+                // Determine if current user can kick this participant
+                // Host/co-host can kick non-host participants (not themselves)
+                const canKick = canManagePermissions && 
+                  !participant.isLocal && 
+                  participant.role !== 'HOST';
+                
                 return (
-                  <div
+                  <ParticipantCard
                     key={participant.identity}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-150",
-                      isActive ? "bg-violet-50 border border-violet-200" : "hover:bg-slate-50"
-                    )}
+                    participant={participant}
+                    joinedAt={participant.joinedAt}
+                    canKick={canKick}
+                    onKick={canKick ? () => handleInitiateKick(participant.identity) : undefined}
                   >
-                    <div className="relative shrink-0">
-                      {participant.imageUrl ? (
-                        <Image
-                          src={participant.imageUrl}
-                          alt={participant.name}
-                          width={32}
-                          height={32}
-                          className={cn(
-                            "h-8 w-8 rounded-full object-cover",
-                            isActive && "ring-2 ring-violet-300"
-                          )}
-                        />
-                      ) : (
-                        <div
-                          className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-full text-white text-xs font-semibold",
-                            isActive ? "bg-violet-600" : "bg-slate-400"
-                          )}
-                        >
-                          {participant.name.charAt(0).toUpperCase()}
-                        </div>
+                    <div
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-150 cursor-pointer",
+                        isActive ? "bg-violet-50 border border-violet-200" : "hover:bg-slate-50"
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        {participant.name}
-                        {participant.isLocal && (
-                          <span className="ml-1 text-xs font-normal text-slate-400">(You)</span>
+                    >
+                      <div className="relative shrink-0">
+                        {participant.imageUrl ? (
+                          <Image
+                            src={participant.imageUrl}
+                            alt={participant.name}
+                            width={32}
+                            height={32}
+                            className={cn(
+                              "h-8 w-8 rounded-full object-cover",
+                              isActive && "ring-2 ring-violet-300"
+                            )}
+                          />
+                        ) : (
+                          <div
+                            className={cn(
+                              "flex h-8 w-8 items-center justify-center rounded-full text-white text-xs font-semibold",
+                              isActive ? "bg-violet-600" : "bg-slate-400"
+                            )}
+                          >
+                            {participant.name.charAt(0).toUpperCase()}
+                          </div>
                         )}
-                      </p>
-                    </div>
-                    
-                    {/* Hand Raise Indicator */}
-                    <ParticipantHandRaiseIndicator
-                      isRaised={!!handRaiseState}
-                      raisedAt={handRaiseState?.raisedAt}
-                      queuePosition={queuePosition}
-                    />
-                    
-                    {/* Host Controls for Hand Raise */}
-                    {onLowerParticipantHand && (
-                      <HandRaiseControls
-                        participantId={participant.identity}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-slate-900 truncate">
+                            {participant.name}
+                          </p>
+                          {participant.isLocal && (
+                            <span className="text-xs font-normal text-slate-400">(You)</span>
+                          )}
+                          {participant.role === 'HOST' && (
+                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0">
+                              Host
+                            </Badge>
+                          )}
+                          {participant.role === 'CO_HOST' && (
+                            <Badge className="bg-violet-100 text-violet-700 border-violet-200 text-[10px] px-1.5 py-0">
+                              Co-Host
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Hand Raise Indicator */}
+                      <ParticipantHandRaiseIndicator
                         isRaised={!!handRaiseState}
-                        isHost={canManagePermissions || false}
-                        onLowerHand={onLowerParticipantHand}
+                        raisedAt={handRaiseState?.raisedAt}
+                        queuePosition={queuePosition}
                       />
-                    )}
-                    
-                    <div className="flex items-center gap-1 shrink-0">
-                      <div className={cn("flex h-5 w-5 items-center justify-center rounded-full", participant.isAudioEnabled ? "bg-emerald-100" : "bg-red-100")}>
-                        {participant.isAudioEnabled ? (
-                          <Mic className="h-3 w-3 text-emerald-600" strokeWidth={2} />
-                        ) : (
-                          <MicOff className="h-3 w-3 text-red-500" strokeWidth={2} />
-                        )}
-                      </div>
-                      <div className={cn("flex h-5 w-5 items-center justify-center rounded-full", participant.isVideoEnabled ? "bg-emerald-100" : "bg-slate-100")}>
-                        {participant.isVideoEnabled ? (
-                          <Video className="h-3 w-3 text-emerald-600" strokeWidth={2} />
-                        ) : (
-                          <VideoOff className="h-3 w-3 text-slate-400" strokeWidth={2} />
-                        )}
+                      
+                      {/* Host Controls for Hand Raise */}
+                      {onLowerParticipantHand && (
+                        <HandRaiseControls
+                          participantId={participant.identity}
+                          isRaised={!!handRaiseState}
+                          isHost={canManagePermissions || false}
+                          onLowerHand={onLowerParticipantHand}
+                        />
+                      )}
+                      
+                      <div className="flex items-center gap-1 shrink-0">
+                        <div className={cn("flex h-5 w-5 items-center justify-center rounded-full", participant.isAudioEnabled ? "bg-emerald-100" : "bg-red-100")}>
+                          {participant.isAudioEnabled ? (
+                            <Mic className="h-3 w-3 text-emerald-600" strokeWidth={2} />
+                          ) : (
+                            <MicOff className="h-3 w-3 text-red-500" strokeWidth={2} />
+                          )}
+                        </div>
+                        <div className={cn("flex h-5 w-5 items-center justify-center rounded-full", participant.isVideoEnabled ? "bg-emerald-100" : "bg-slate-100")}>
+                          {participant.isVideoEnabled ? (
+                            <Video className="h-3 w-3 text-emerald-600" strokeWidth={2} />
+                          ) : (
+                            <VideoOff className="h-3 w-3 text-slate-400" strokeWidth={2} />
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </ParticipantCard>
                 );
               })}
             </div>
@@ -646,11 +774,20 @@ export function MeetingSidebar({
         currentUserId={currentUserId}
         permissions={permissions}
         canManageCoHosts={canManageCoHosts}
+        isHost={canManageCoHosts}
         onUpdatePermissions={onUpdatePermissions}
         onGrantWhiteboardAccess={onGrantWhiteboardAccess}
         onRevokeWhiteboardAccess={onRevokeWhiteboardAccess}
         onGrantCoHost={onGrantCoHost}
         onRevokeCoHost={onRevokeCoHost}
+      />
+
+      <KickConfirmationDialog
+        open={showKickDialog}
+        onOpenChange={setShowKickDialog}
+        participantName={kickTargetParticipant?.name || ""}
+        isKicking={isKicking}
+        onConfirm={handleConfirmKick}
       />
     </div>
   );
@@ -893,6 +1030,50 @@ function EndMeetingModal({
   );
 }
 
+/**
+ * KickConfirmationDialog - Confirmation dialog for kicking a participant
+ * Requirements: 2.2
+ */
+function KickConfirmationDialog({
+  open,
+  onOpenChange,
+  participantName,
+  isKicking,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  participantName: string;
+  isKicking: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+              <UserMinus className="h-5 w-5 text-red-600" strokeWidth={2} />
+            </div>
+            <DialogTitle>Remove Participant?</DialogTitle>
+          </div>
+        </DialogHeader>
+        <DialogDescription className="pt-2">
+          Are you sure you want to remove <span className="font-semibold">{participantName}</span> from this meeting? They will be disconnected immediately.
+        </DialogDescription>
+        <DialogFooter className="gap-3">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isKicking}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={isKicking}>
+            {isKicking ? "Removing..." : "Remove from Meeting"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 /**
  * Database participant type
@@ -916,6 +1097,7 @@ function PermissionsModal({
   currentUserId,
   permissions,
   canManageCoHosts,
+  isHost,
   onUpdatePermissions,
   onGrantWhiteboardAccess,
   onRevokeWhiteboardAccess,
@@ -928,6 +1110,7 @@ function PermissionsModal({
   currentUserId: string;
   permissions?: CollaborationPermissions;
   canManageCoHosts?: boolean;
+  isHost?: boolean;
   onUpdatePermissions?: (permissions: Partial<CollaborationPermissions>) => Promise<void>;
   onGrantWhiteboardAccess?: (userId: string) => Promise<void>;
   onRevokeWhiteboardAccess?: (userId: string) => Promise<void>;
@@ -937,12 +1120,24 @@ function PermissionsModal({
   const [dbParticipants, setDbParticipants] = useState<DbParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  
+  // Password management state
+  const [hasPassword, setHasPassword] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
 
   // Fetch participants from database only when modal opens (not on button click)
   useEffect(() => {
     if (!open) {
       // Reset when modal closes
       setHasFetched(false);
+      setPasswordInput("");
+      setPasswordError(null);
+      setPasswordSuccess(null);
+      setShowPasswordInput(false);
       return;
     }
     
@@ -951,16 +1146,13 @@ function PermissionsModal({
     
     const fetchParticipants = async () => {
       setIsLoading(true);
-      console.log("[PermissionsModal] Modal opened, fetching participants for room:", roomId);
       try {
         const response = await axios.get(`/api/room/${roomId}/participants`);
         const participants = response.data.participants || [];
-        console.log("[PermissionsModal] Fetched participants:", participants);
-        console.log("[PermissionsModal] Current user ID:", currentUserId);
         setDbParticipants(participants);
         setHasFetched(true);
       } catch (error) {
-        console.error("[PermissionsModal] Failed to fetch participants:", error);
+        console.error("Failed to fetch participants:", error);
       } finally {
         setIsLoading(false);
       }
@@ -968,6 +1160,51 @@ function PermissionsModal({
     
     fetchParticipants();
   }, [open, roomId, currentUserId, hasFetched, isLoading]);
+
+  // Fetch password status when modal opens (host only)
+  useEffect(() => {
+    if (!open || !isHost || !roomId) return;
+    
+    const fetchPasswordStatus = async () => {
+      try {
+        const response = await axios.get(`/api/room/${roomId}/password`);
+        setHasPassword(response.data.hasPassword);
+      } catch {
+        // Ignore password fetch errors
+      }
+    };
+    
+    fetchPasswordStatus();
+  }, [open, isHost, roomId]);
+
+  // Handle password update
+  const handlePasswordUpdate = async (newPassword: string | null) => {
+    setIsPasswordLoading(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    
+    try {
+      const response = await axios.put(`/api/room/${roomId}/password`, {
+        password: newPassword,
+      });
+      
+      setHasPassword(response.data.hasPassword);
+      setPasswordSuccess(response.data.message);
+      setPasswordInput("");
+      setShowPasswordInput(false);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setPasswordSuccess(null), 3000);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data?.error) {
+        setPasswordError(error.response.data.error);
+      } else {
+        setPasswordError("Failed to update password");
+      }
+    } finally {
+      setIsPasswordLoading(false);
+    }
+  };
 
   // Convert DB participants to SimpleParticipant format, excluding current user and host
   const participantsForSelector: SimpleParticipant[] = dbParticipants
@@ -978,13 +1215,6 @@ function PermissionsModal({
       imageUrl: p.imageUrl,
     }));
   
-  // Debug log only when we have data
-  useEffect(() => {
-    if (open && hasFetched) {
-      console.log("[PermissionsModal] Participants for selector:", participantsForSelector);
-    }
-  }, [open, hasFetched, participantsForSelector]);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
@@ -1022,6 +1252,113 @@ function PermissionsModal({
                 emptyText="No participants available"
                 badgeVariant="amber"
               />
+            </div>
+          )}
+
+          {/* Password Management (Host only) - Requirements 3.1, 3.2, 3.3, 3.6 */}
+          {isHost && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-slate-600" strokeWidth={2} />
+                <Label className="text-sm font-medium">Room Password</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {hasPassword 
+                  ? "This room is password protected. You can change or remove the password."
+                  : "Add a password to require new participants to enter it before joining."}
+              </p>
+              
+              {/* Success/Error Messages */}
+              {passwordSuccess && (
+                <div className="p-2 rounded-md bg-green-50 border border-green-200 text-green-700 text-sm">
+                  {passwordSuccess}
+                </div>
+              )}
+              {passwordError && (
+                <div className="p-2 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+                  {passwordError}
+                </div>
+              )}
+              
+              {/* Password Actions */}
+              {!showPasswordInput ? (
+                <div className="flex gap-2">
+                  {hasPassword ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPasswordInput(true)}
+                        className="flex-1"
+                      >
+                        Change Password
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePasswordUpdate(null)}
+                        disabled={isPasswordLoading}
+                        className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        {isPasswordLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Remove Password"
+                        )}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowPasswordInput(true)}
+                      className="w-full"
+                    >
+                      Add Password
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Enter new password (min 4 characters)"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="h-9"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handlePasswordUpdate(passwordInput)}
+                      disabled={isPasswordLoading || passwordInput.length < 4}
+                      className="flex-1"
+                    >
+                      {isPasswordLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Save Password"
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowPasswordInput(false);
+                        setPasswordInput("");
+                        setPasswordError(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  {passwordInput.length > 0 && passwordInput.length < 4 && (
+                    <p className="text-xs text-amber-600">Password must be at least 4 characters</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1118,7 +1455,6 @@ function ParticipantSelector({
     : "bg-violet-100 text-violet-800 hover:bg-violet-200";
 
   const handleSelect = async (participantId: string) => {
-    console.log("[ParticipantSelector] Selected:", participantId);
     await onSelect?.(participantId);
     setOpen(false);
     setSearch("");

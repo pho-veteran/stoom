@@ -105,9 +105,8 @@ export function useCollaborationPermissions(
           coHosts: coHosts || prev.coHosts,
         }));
         setHasLoadedFromDb(true);
-        console.log("[Permissions] Loaded from DB:", { dbPerms, coHosts });
       } catch (error) {
-        console.error("[Permissions] Failed to load from DB:", error);
+        console.error("Failed to load permissions:", error);
         setHasLoadedFromDb(true); // Mark as loaded to prevent retry loop
       }
     };
@@ -129,9 +128,8 @@ export function useCollaborationPermissions(
           whiteboardAllowedUsers: newPerms.whiteboardAllowedUsers,
           notesAllowedUsers: newPerms.notesAllowedUsers,
         });
-        console.log("[Permissions] Saved to DB");
       } catch (error) {
-        console.error("[Permissions] Failed to save to DB:", error);
+        console.error("Failed to save permissions:", error);
       }
     },
     [roomId]
@@ -412,9 +410,8 @@ export function useCollaborationPermissions(
       // Save to DB via cohost API
       try {
         await axios.post(`/api/room/${roomId}/cohost`, { targetUserId });
-        console.log("[Permissions] Co-host granted and saved to DB");
       } catch (error) {
-        console.error("[Permissions] Failed to save co-host to DB:", error);
+        console.error("Failed to save co-host:", error);
       }
     },
     [isHost, userId, roomId, broadcastPermissionMessage]
@@ -452,9 +449,8 @@ export function useCollaborationPermissions(
       // Save to DB via cohost API
       try {
         await axios.delete(`/api/room/${roomId}/cohost`, { data: { targetUserId } });
-        console.log("[Permissions] Co-host revoked and saved to DB");
       } catch (error) {
-        console.error("[Permissions] Failed to revoke co-host in DB:", error);
+        console.error("Failed to revoke co-host:", error);
       }
     },
     [isHost, userId, roomId, broadcastPermissionMessage]

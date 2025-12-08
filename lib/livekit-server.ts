@@ -1,4 +1,4 @@
-import { RoomServiceClient } from "livekit-server-sdk"
+import { RoomServiceClient, DataPacket_Kind } from "livekit-server-sdk"
 
 const livekitHost = process.env.LIVEKIT_URL || "http://localhost:7880"
 const apiKey = process.env.LIVEKIT_API_KEY || "devkey"
@@ -6,6 +6,31 @@ const apiSecret = process.env.LIVEKIT_API_SECRET || "secret"
 
 // Create RoomServiceClient for server-side LiveKit operations
 export const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret)
+
+/**
+ * Send a data message to all participants in a room
+ */
+export async function sendDataMessage(
+  roomName: string,
+  message: Record<string, unknown>,
+  destinationIdentities?: string[]
+): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(JSON.stringify(message))
+    
+    await roomService.sendData(
+      roomName,
+      data,
+      DataPacket_Kind.RELIABLE,
+      { destinationIdentities }
+    )
+    return true
+  } catch (error) {
+    console.error("Error sending data message:", error)
+    return false
+  }
+}
 
 /**
  * Check if a LiveKit room exists and has participants

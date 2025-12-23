@@ -534,51 +534,27 @@ start
 :User navigates to /sign-in page;
 
 |System|
-:Display Clerk authentication interface;
+:Display Clerk authentication interface\n(email/password or social login);
 
 |User|
-:User selects authentication method;
+:User submits credentials\n(email/password or social provider);
 
-if (Authentication Method?) then (Email/Password)
-    :User enters credentials and clicks "Sign In";
-    
+|System|
+:Clerk validates credentials;
+
+if (Credentials Valid?) then (No)
+    |User|
+    :System displays error message;
+    :User can retry or reset password;
+    stop
+else (Yes)
     |System|
-    :Clerk validates credentials;
+    :Clerk creates user session;
+    :System redirects to /dashboard;
     
-    if (Credentials Valid?) then (No)
-        |User|
-        :System displays error message;
-        :User can retry or reset password;
-        stop
-    else (Yes)
-        |System|
-        :Clerk creates user session;
-        :System redirects to /dashboard;
-        
-        |User|
-        :User is authenticated;
-        stop
-    endif
-    
-else (Social Login)
-    :User clicks social provider and authorizes;
-    
-    |System|
-    :Clerk processes social login;
-    
-    if (Authorization Granted?) then (No)
-        |User|
-        :Return to sign-in page;
-        stop
-    else (Yes)
-        |System|
-        :Clerk creates user session;
-        :System redirects to /dashboard;
-        
-        |User|
-        :User is authenticated;
-        stop
-    endif
+    |User|
+    :User is authenticated;
+    stop
 endif
 
 @enduml
@@ -599,33 +575,14 @@ skinparam activity {
 
 |Participant|
 start
-:User clicks "Join with Code" button\non dashboard;
+:User enters room code and\nclicks "Join Room";
 
 |System|
-:Display dialog with room code input field;
-
-|Participant|
-:User enters room code;
-:User clicks "Join Room" or presses Enter;
-
-|System|
-:Validate user authentication status;
-
-if (User Authenticated?) then (No)
-    |Participant|
-    :System redirects to /sign-in;
-    :After authentication, system\nredirects back to join flow;
-    |System|
-    :Continue with room validation;
-else (Yes)
-endif
-
 :Query database for room\nwith matching code;
 
 if (Room Code Valid?) then (No)
     |Participant|
     :System displays error message\n"Room not found";
-    :User can retry or cancel;
     stop
 else (Yes)
 endif
@@ -643,7 +600,6 @@ else (No)
 endif
 
 |Participant|
-:User optionally toggles\nmicrophone and camera;
 :User clicks "Join Room" button;
 
 |System|
@@ -653,7 +609,6 @@ if (Password Required?) then (Yes)
     if (Password Provided?) then (No)
         |Participant|
         :System displays\n"Password required" error;
-        :User enters password and retries;
         stop
     else (Yes)
         |System|
@@ -662,7 +617,6 @@ if (Password Required?) then (Yes)
         if (Password Correct?) then (No)
             |Participant|
             :System displays error message\n"Incorrect password";
-            :User can retry password entry\nor cancel;
             stop
         else (Yes)
         endif
@@ -671,21 +625,10 @@ else (No)
 endif
 
 |System|
-partition Parallel {
-    :Create/update RoomParticipant record\nlinking user to session;
-    :Initialize user's media streams\n(via LiveKit);
-}
-
-:Load room permissions\n(whiteboard, notes access);
-:Load chat history from database;
-:Initialize collaboration features\nbased on permissions;
-
-:Transition to main room interface\nwith multi-panel layout;
-:Subscribe user to real-time updates\n(participants, chat, whiteboard);
+:Connect to LiveKit room and\nload room data (permissions, chat);
 
 |Participant|
-:User is in active room interface;
-:User can see other participants\nand interact with room features;
+:User is in active room interface\nand can interact with room features;
 stop
 
 @enduml
@@ -765,40 +708,29 @@ start
 :User clicks Notes tab in Chat/Notes panel;
 
 |System|
-if (User Has Notes Permission?) then (No)
-    :Hide Notes tab or show read-only;
-    |Participant|
-    :User cannot access notes;
-    stop
-else (Yes)
-endif
-
 :Display Tiptap rich-text editor;
 :Load saved notes from database\n(if any exist);
 
 |Participant|
-:User types content in editor;
+:User types content and\napplies formatting;
 
 |System|
 :Update editor content locally;
 
 |Participant|
-:User optionally applies formatting\n(bold, italic, headings, lists);
+:User clicks Save button;
 
 |System|
-:Apply formatting to selected text;
-:Auto-save notes to database\nvia /api/room/[roomId]/notes;
+:Save notes to database\nvia /api/room/[roomId]/notes;
 
 if (Save Successful?) then (No)
-    :Retry save operation;
-    :Keep notes in local state;
+    :Display error message;
 else (Yes)
     :Notes persisted to database;
 endif
 
 |Participant|
-:Continue taking notes;
-:Repeat for each edit;
+:User continues taking notes\nand saves periodically;
 stop
 
 @enduml
@@ -822,55 +754,25 @@ start
 :User navigates to /sessions page;
 
 |System|
-:Query database for user's sessions;
-:Filter rooms where user is owner or participant;
-
-if (Sessions Found?) then (No)
-    |User|
-    :Display empty state message;
-    :User can navigate to dashboard;
-    stop
-else (Yes)
-    :Display sessions grid with cards;
-endif
+:Load and display sessions grid;
 
 |User|
 :User clicks on session card;
 
 |System|
-:Navigate to /sessions/[id];
-:Load session data from database;
-:Query participants, chat, whiteboard, notes;
-:Display session header with metadata;
+:Load and display session details\n(participants, statistics, whiteboard, notes);
 
 |User|
-:User views session details;
-
-if (View Whiteboard?) then (Yes)
+if (View Whiteboard Tab?) then (Yes)
     |System|
-    if (Whiteboard Snapshot Exists?) then (No)
-        :Display "No whiteboard" placeholder;
-    else (Yes)
-        :Render whiteboard snapshot as image;
-        :Enable zoom and pan controls;
-    endif
-else (No)
+    :Display whiteboard snapshot\nor placeholder if not saved;
 endif
 
-if (View Notes?) then (Yes)
+|User|
+if (View Notes Tab?) then (Yes)
     |System|
-    if (Notes Exist?) then (No)
-        :Display "No notes" placeholder;
-    else (Yes)
-        :Render notes in read-only format;
-        :Display formatted rich text;
-    endif
-else (No)
+    :Display notes content\nor placeholder if not saved;
 endif
-
-|System|
-:Display participants list;
-:Display session statistics;
 
 |User|
 :User reviews session content;
@@ -940,89 +842,45 @@ This sequence diagram shows the room joining flow including room validation, pas
 ```mermaid
 sequenceDiagram
     actor Participant
-    participant Client as Client App (/room/[roomId])
-    participant ValidateAPI as /api/room/validate
-    participant TokenAPI as /api/livekit/token
+    participant Client as Client App
+    participant API as Next.js API
     participant DB as MongoDB
     participant LiveKit as LiveKit Server
-    participant Webhook as /api/livekit/webhook
     
     Participant->>Client: Navigate to /room/[roomCode]
-    Client->>ValidateAPI: GET /api/room/validate?code=[roomCode]
+    Client->>API: GET /api/room/validate?code=[roomCode]
+    API->>DB: Query room by code
     
-    ValidateAPI->>DB: Query room by code
-    
-    alt Room Not Found
-        DB->>ValidateAPI: Return null
-        ValidateAPI->>Client: 404 {code: "ROOM_NOT_FOUND"}
-        Client->>Participant: Display "Room Not Found" error page
-    else Room Ended
-        DB->>ValidateAPI: Return room (status: ENDED)
-        ValidateAPI->>Client: 410 {code: "ROOM_ENDED"}
-        Client->>Participant: Display "Meeting Ended" error page
+    alt Room Invalid (not found or ended)
+        API->>Client: Return error (404 or 410)
+        Client->>Participant: Display error page
     else Room Valid
-        DB->>ValidateAPI: Return room data
-        ValidateAPI->>LiveKit: Check if LiveKit room exists
-        LiveKit->>ValidateAPI: Return room status
-        
-        alt Stale Room (ACTIVE but no LiveKit room for 5+ min)
-            ValidateAPI->>DB: Update room status to ENDED
-            ValidateAPI->>Client: 410 {code: "ROOM_ENDED"}
-            Client->>Participant: Display "Meeting Ended" error page
-        else Room OK
-            ValidateAPI->>Client: 200 {room: {code, name, isHost, hasPassword}}
-            Client->>Participant: Display pre-join screen
+        API->>Client: Return room info (hasPassword, isHost)
+        Client->>Participant: Display pre-join screen
+    end
+    
+    Participant->>Client: Click "Join Room" (with password if required)
+    Client->>API: POST /api/livekit/token {roomName, password}
+    
+    alt Password Validation (non-host)
+        API->>API: Validate password with bcrypt
+        alt Invalid Password
+            API->>Client: 401 "Invalid password"
+            Client->>Participant: Display error
         end
     end
     
-    alt Room Has Password (non-host)
-        Client->>Participant: Show password input field
-        Participant->>Client: Enter password
-    end
-    
-    Participant->>Client: Toggle mic/camera, click "Join Room"
-    Client->>TokenAPI: POST /api/livekit/token {roomName, password}
-    
-    TokenAPI->>DB: Query room by code
-    DB->>TokenAPI: Return room with hashed password
-    
-    alt Password Required (non-host)
-        alt No Password Provided
-            TokenAPI->>Client: 401 {code: "PASSWORD_REQUIRED"}
-            Client->>Participant: Show password input field
-        else Password Provided
-            TokenAPI->>TokenAPI: bcrypt.compare(password, hashedPassword)
-            alt Invalid Password
-                TokenAPI->>Client: 401 {code: "INVALID_PASSWORD"}
-                Client->>Participant: Display "Incorrect password" error
-            else Valid Password
-                TokenAPI->>TokenAPI: Continue with token generation
-            end
-        end
-    end
-    
-    TokenAPI->>DB: Upsert user (clerkId, name, email, imageUrl)
-    DB->>TokenAPI: Return user
-    TokenAPI->>TokenAPI: Generate AccessToken with metadata
-    TokenAPI->>Client: Return {token}
+    API->>DB: Upsert user data
+    API->>API: Generate LiveKit access token
+    API->>Client: Return {token}
     
     Client->>LiveKit: Connect to room with token
     LiveKit->>Client: Connection established
+    LiveKit->>API: Webhook: room_started, participant_joined
+    API->>DB: Update room status and participant record
     
-    LiveKit->>Webhook: POST room_started (if first participant)
-    Webhook->>DB: Update room status to ACTIVE, set startedAt
-    
-    LiveKit->>Webhook: POST participant_joined
-    Webhook->>DB: Create/update RoomParticipant record
-    
-    Client->>Participant: Display main room interface with video feeds
-    
-    Note over Client: Load room data (chat, permissions)
-    Client->>DB: GET /api/room/[roomId]/permissions
-    DB->>Client: Return whiteboard/notes permissions
-    Client->>DB: GET /api/chat?roomId=[roomId]
-    DB->>Client: Return chat messages
-    Client->>Client: Initialize collaboration features with permissions
+    Client->>API: Load permissions and chat history
+    Client->>Participant: Display room interface
 ```
 
 ### 2.4.3. Use Case 2: Collaborate on Whiteboard
@@ -1074,7 +932,7 @@ sequenceDiagram
 
 ### 2.4.4. Use Case 3: Take Personal Notes
 
-This sequence diagram shows the personal notes workflow with auto-save functionality.
+This sequence diagram shows the personal notes workflow with manual save functionality.
 
 ```mermaid
 sequenceDiagram
@@ -1099,20 +957,15 @@ sequenceDiagram
     
     Client->>Participant: Display notes editor
     
-    Participant->>Client: Type content
-    Client->>Client: Update editor content
+    Participant->>Client: Type content and apply formatting
+    Client->>Client: Update editor content locally
     
-    Participant->>Client: Apply formatting (bold, heading, list)
-    Client->>Client: Apply formatting to selection
-    
-    Note over Client: Auto-save triggered (debounced)
-    
-    Client->>NotesAPI: PUT /api/room/[roomId]/notes {content}
+    Participant->>Client: Click Save button
+    Client->>NotesAPI: POST /api/room/[roomId]/notes {content}
     NotesAPI->>DB: Upsert RoomNote (create or update)
     DB->>NotesAPI: Confirm save
     NotesAPI->>Client: Return success
-    
-    Note over Participant: Continue editing, auto-save repeats
+    Client->>Participant: Show save confirmation
 ```
 
 ### 2.4.5. Use Case 4: View Session History
@@ -1226,8 +1079,7 @@ Loading : Load from localStorage
 Loading : Load from database (fallback)
 Loading : Request sync from participants
 
-Loading --> Ready : Data loaded
-Loading --> Ready : Sync response received
+Loading --> Ready : Data loaded or sync received
 
 Ready : Whiteboard ready for use
 Ready : Connected to LiveKit DataChannel
@@ -1264,7 +1116,7 @@ Disconnected --> [*] : User leaves room
 
 ### 2.5.3. Personal Notes State
 
-This diagram shows the personal notes state machine for auto-save functionality.
+This diagram shows the personal notes state machine for manual save functionality.
 
 ```plantuml
 @startuml
@@ -1293,26 +1145,23 @@ Loaded --> Editing : User modifies content
 Editing : User typing or formatting
 Editing : Content changed locally
 
-Editing --> Saving : Auto-save triggered (debounced)
-Editing --> Editing : Continue editing
+Editing --> Saving : User clicks Save button
 
-Saving : PUT /api/room/[roomId]/notes
+Saving : POST /api/room/[roomId]/notes
 Saving : Send content to database
 
 Saving --> Saved : Save successful
 Saving --> SaveError : Save failed
 
 Saved : Content persisted
-Saved : Show save indicator
+Saved : Show save confirmation
 
 Saved --> Editing : User continues editing
 Saved --> [*] : User leaves room
 
-SaveError : Display error indicator
-SaveError : Retry save operation
+SaveError : Display error message
 
-SaveError --> Saving : Retry attempt
-SaveError --> Editing : User continues (local state)
+SaveError --> Editing : User continues editing
 
 @enduml
 ```
@@ -1572,19 +1421,53 @@ This data model supports the functional requirements by providing structured sto
 
 ## Chapter 3: Implementation
 
-The Stoom platform is built using Next.js 16 App Router with route groups for logical organization. This chapter describes the user interactions and functionality available across all routes:
+### 3.1 General Interface
 
-**Marketing Route (`/`):** Users can browse the public landing page to learn about the platform features (Real-time Video, Collaborative Whiteboard, Personal Notes). Users can navigate to sign-in or sign-up pages to begin using the platform. No authentication required.
+The Stoom platform consists of four main interface categories, each serving distinct user needs:
 
-**Authentication Routes:** **Sign In (`/sign-in`):** Users can authenticate using email/password credentials or social login providers (Google, GitHub). Upon successful authentication, users are automatically redirected to the dashboard. **Sign Up (`/sign-up`):** New users can create an account using email/password or social registration. After successful registration, users are redirected to the dashboard to start using the platform.
+- **Marketing Interface:** Public landing page introducing the platform
+- **Authentication Interfaces:** Sign-in and sign-up pages for user access
+- **Dashboard Interface:** Main hub for managing meetings and viewing past sessions
+- **Sessions Interfaces:** Detailed views of completed sessions with whiteboard and notes
+- **Room Interface:** Real-time collaboration environment with video, whiteboard, and chat
 
-**Dashboard Route (`/dashboard`):** Users can switch between "Dashboard" and "Sessions" tabs. In the Dashboard tab, users can join existing rooms by entering a room code (opens dialog, navigates to room), create new meetings with custom settings (meeting title, mute on join, camera off, password protection), and view recent sessions in a grid. Users can click "View Details" on any session card to navigate to the session detail page. In the Sessions tab, users can browse all their past session history in a grid layout and access detailed views by clicking session cards. Users can also access their profile settings via the user button in the header.
+All interfaces are built using Next.js 16 App Router with route groups for logical organization. The design system uses violet as the primary brand color, with consistent styling across all pages using Tailwind CSS and shadcn/ui components.
 
-**Sessions Routes:** **List (`/sessions`):** Users can view all their past session history in a grid, filter and browse through their history, and navigate to detailed views by clicking on session cards. **Detail (`/sessions/[id]`):** Users can view comprehensive session information including whiteboard snapshots (if saved), personal notes from the session, participant list, and session statistics (duration, participant count, message count). Users can navigate back to the sessions list. Users can switch between Whiteboard and Notes tabs to view different aspects of the session.
+### 3.2 User Interface
 
-**Room Route (`/room/[roomId]`):** Before joining, users can test their microphone and camera, toggle media devices on/off, and then join the room. Once in the room, users can toggle microphone on/off, toggle camera on/off, share their screen with other participants, toggle whiteboard visibility in the Stage area, switch between horizontal and vertical layout for screen share and whiteboard, view and interact with the participants list (see who's speaking, mute status, video status), send chat messages to all participants, take personal notes using the rich-text editor, resize panels (participants sidebar, chat/notes panel) with sizes persisted across sessions, collapse/expand the participants sidebar, show/hide chat and notes panel, and leave the room (returns to dashboard). The floating dock auto-hides after inactivity and reappears on hover or interaction.
+**Landing Route:**
 
-**API Routes:** **Clerk Proxy (`/api/clerk/[...clerk]`):** Handles all authentication requests from Clerk service, enabling sign-in, sign-up, and session management functionality throughout the platform.
+Figure 3-1. Landing Page UI
+
+Users can browse the public landing page to learn about the platform features (Real-time Video, Collaborative Whiteboard, Personal Notes). Users can navigate to sign-in or sign-up pages to begin using the platform. No authentication required.
+
+**Authentication Routes:**
+
+Figure 3-2. Authentication UI
+
+Sign In (`/sign-in`): Users can authenticate using email/password credentials or social login providers (Google, GitHub). Upon successful authentication, users are automatically redirected to the dashboard. Sign Up (`/sign-up`): New users can create an account using email/password or social registration. After successful registration, users are redirected to the dashboard to start using the platform.
+
+**Dashboard Route:**
+
+Figure 3-3. Dashboard UI
+
+Users can switch between "Dashboard" and "Sessions" tabs. In the Dashboard tab, users can join existing rooms by entering a room code (opens dialog, navigates to room), create new meetings with custom settings (meeting title, mute on join, camera off, password protection, whiteboard restriction), and view recent sessions in a grid. Users can click "View Details" on any session card to navigate to the session detail page. In the Sessions tab, users can browse all their past session history in a grid layout and access detailed views by clicking session cards. Users can also access their profile settings via the user button in the header.
+
+**Sessions Routes:**
+
+Figure 3-4. Sessions Management UI
+
+Figure 3-5. Session Details UI
+
+Users can view all their past session history in a grid, filter and browse through their history, and navigate to detailed views by clicking on session cards. Detail (`/sessions/[id]`): Users can view comprehensive session information including whiteboard snapshots (if saved), personal notes from the session, participant list with role indicators, and session statistics (duration, participant count, message count). Users can navigate back to the sessions list. Users can switch between Whiteboard and Notes tabs to view different aspects of the session.
+
+**Room Route:**
+
+Figure 3-6. Room Joining UI
+
+Figure 3-7. Room Meeting UI
+
+Before joining, users can test their microphone and camera, toggle media devices on/off, enter room password if required (non-host only), and then join the room. Once in the room, users can toggle microphone on/off, toggle camera on/off, share their screen with other participants, toggle whiteboard visibility, switch between horizontal and vertical layout for screen share and whiteboard, view and interact with the participants list (see who's speaking, mute status, video status, role badges), raise/lower hand to get attention from host, send chat messages to all participants, take personal notes using the rich-text editor, resize panels (participants sidebar, chat/notes panel) with sizes persisted across sessions, collapse/expand the participants sidebar, show/hide chat and notes panel, manage room settings as host/co-host (permissions, password, co-hosts, kick participants), and leave the room (returns to dashboard). The floating dock auto-hides after inactivity and reappears on hover or interaction.
 
 ## Conclusion
 
@@ -1600,9 +1483,15 @@ The project has achieved significant milestones:
 
 * **Collaborative Whiteboard:** Integrated **tldraw** library for a full-featured collaborative drawing experience with pen, highlighter, eraser, shapes, and text tools. Supports image upload with server-side storage to avoid WebRTC size limits. Real-time synchronization across all participants with automatic state recovery for new joiners.
 
-* **Personal Notes:** Integrated **Tiptap** rich-text editor for personal note-taking with support for headings, lists, bold, italic, and strikethrough formatting. Notes are automatically saved to the database and persist across sessions.
+* **Personal Notes:** Integrated **Tiptap** rich-text editor for personal note-taking with support for headings, lists, bold, italic, and strikethrough formatting. Notes can be saved to the database and persist across sessions.
 
 * **Permission System:** Implemented granular permission controls allowing hosts to manage whiteboard and notes access (open, restricted, disabled) and grant/revoke access to specific participants.
+
+* **Room Security:** Implemented room password protection with bcrypt hashing. Hosts can set, change, or remove passwords during active sessions. Password validation is performed during join with host exemption.
+
+* **Role Management:** Implemented a three-tier role system (Host, Co-Host, Participant) with appropriate permission levels. Hosts can grant/revoke co-host privileges. Co-hosts can manage permissions, kick participants, and end meetings.
+
+* **Participant Management:** Implemented hand raise feature for participants to get attention, with queue management for hosts/co-hosts. Added kick functionality to remove disruptive participants with confirmation dialogs.
 
 * **Modern Architecture:** Built a scalable, type-safe full-stack application using **Next.js 16**, **TypeScript**, **Clerk Auth**, and **Prisma/MongoDB**, ensuring maintainability and performance.
 

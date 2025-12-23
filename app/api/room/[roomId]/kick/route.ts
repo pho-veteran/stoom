@@ -6,7 +6,6 @@ import { roomService, sendDataMessage } from "@/lib/livekit-server";
 /**
  * POST /api/room/[roomId]/kick
  * Kick a participant from the room (host or co-host only)
- * Simply removes them from LiveKit - no DB updates needed
  */
 export async function POST(
   request: NextRequest,

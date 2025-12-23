@@ -30,6 +30,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 })
     }
 
+    // Check if room is in ACTIVE state
+    if (room.status !== "ACTIVE") {
+      return NextResponse.json(
+        { error: "Chat is only available when the room is active" },
+        { status: 403 }
+      )
+    }
+
     // Get user
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
@@ -99,10 +107,6 @@ export async function GET(request: NextRequest) {
     if (!room) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 })
     }
-
-    // For active rooms, any authenticated user with the room code can access chat
-    // For ended rooms, we could add stricter access control if needed
-    // Currently allowing access since they have the room code
 
     // Get chat messages
     const messages = await prisma.chatMessage.findMany({

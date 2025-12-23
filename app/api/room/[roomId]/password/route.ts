@@ -13,12 +13,6 @@ function isValidObjectId(id: string): boolean {
 /**
  * PUT /api/room/[roomId]/password
  * Update room password (host only)
- *
- * Requirements: 3.1, 3.4, 3.5, 3.8
- * - Only hosts can manage passwords (3.8)
- * - Password must be at least 4 characters (3.4)
- * - Changes apply immediately for new join attempts (3.5)
- * - Existing participants are not disconnected (3.7)
  */
 export async function PUT(
   request: NextRequest,
@@ -65,7 +59,7 @@ export async function PUT(
       );
     }
 
-    // Validate password if provided (Requirement 3.4)
+    // Validate password if provided
     // password can be null to remove password, or a string to set/change
     if (password !== null && password !== undefined) {
       if (typeof password !== "string") {

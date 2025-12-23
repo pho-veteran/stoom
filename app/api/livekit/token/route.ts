@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       where: { code: roomName },
     })
 
-    // Validate password if room has one (Requirement 3.5)
+    // Validate password if room has one
     // Host is exempt from password check
     if (room && room.password) {
       const isHost = room.ownerId === dbUser.id

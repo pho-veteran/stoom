@@ -231,7 +231,7 @@ export default function SessionDetailPage({
       {/* Main Content */}
       <main className="relative flex-1">
         <div className="absolute inset-0 bg-linear-to-br from-violet-50/30 via-background to-slate-50/30 dark:from-slate-950/50 dark:via-background dark:to-slate-900/50" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px]" />
         <div className="container relative z-10 mx-auto px-6 py-8 md:py-12">
           {/* Session Header Card */}
           <div className="relative overflow-hidden rounded-2xl border-2 border-border bg-card p-6 md:p-8 mb-8">
@@ -543,7 +543,7 @@ export default function SessionDetailPage({
                   <div className="rounded-lg border border-border overflow-hidden h-full">
                     <WhiteboardSnapshotViewer
                       snapshot={session.collaboration.whiteboardSnapshot}
-                      className="!h-full"
+                      className="h-full!"
                     />
                   </div>
                 </TabsContent>

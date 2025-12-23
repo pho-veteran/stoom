@@ -17,13 +17,23 @@ The **User** actor is the fundamental entity in the system, representing any aut
 #### Specialized Actor: Room Host
 
 The **Room Host** is a specialized User who creates a meeting room. This actor inherits all capabilities of the base User class and additionally possesses administrative privileges within the room context. The Room Host has the following specialized capabilities:
-- Create new meeting rooms with custom settings (title, password, media preferences)
+- Create new meeting rooms with custom settings (title, password, media preferences, whiteboard restriction)
 - Control room settings during an active session
 - Manage collaboration permissions (whiteboard, notes access control)
 - Grant or revoke whiteboard/notes editing access to specific participants
-- Mute or remove participants (future enhancement)
+- Kick (remove) participants from the meeting
+- Grant or revoke co-host privileges to participants
 - End the meeting session
 - Save whiteboard snapshots and notes to the database
+
+#### Specialized Actor: Co-Host
+
+The **Co-Host** is a specialized User who has been granted elevated privileges by the Room Host. This actor inherits Participant capabilities and additionally has management rights. The Co-Host can:
+- Manage collaboration permissions (whiteboard, notes access control)
+- Grant or revoke whiteboard/notes editing access to specific participants
+- Kick (remove) participants from the meeting
+- End the meeting session
+- Lower raised hands of participants
 
 #### Specialized Actor: Participant
 
@@ -32,6 +42,7 @@ The **Participant** is a specialized User who joins an existing meeting room. Th
 - Participate in real-time collaboration (video, audio, whiteboard, notes)
 - Send chat messages
 - Use whiteboard and notes based on permission settings
+- Raise hand to get attention from host/co-host
 - Leave the room at any time
 - Cannot modify room settings or control other participants
 
@@ -58,8 +69,9 @@ Functional requirements are organized into logical modules that represent distin
 **REQ-2.2:** The system shall provide a "New Meeting" dialog that allows Room Hosts to:
 - Set a meeting name (required field)
 - Optionally set a room password for access control
+- Optionally restrict whiteboard access (only host can edit by default)
 - Generate a unique 6-character room code via `/api/room/create`
-- Persist room to MongoDB with status WAITING
+- Persist room to MongoDB with status WAITING and initial permission settings
 - Navigate to the room after creation
 
 **REQ-2.3:** The system shall validate room access via `/api/room/validate` endpoint:
@@ -87,6 +99,37 @@ Functional requirements are organized into logical modules that represent distin
 - Call `/api/room/end` to delete LiveKit room and update database
 - Show "Meeting Ended" overlay to all participants with countdown and redirect
 
+**REQ-2.7:** The system shall provide a Hand Raise feature for participants:
+- Participants can raise/lower their hand via a button in the meeting controls
+- Raised hands are displayed with a visual indicator (hand icon) on participant cards
+- Host and co-hosts see a hand raise queue showing participants in order of when they raised their hand
+- Host and co-hosts can lower individual participant's hands or lower all hands at once
+- Hand raise state is synchronized in real-time via LiveKit DataChannel
+- Screen reader announcements are provided for accessibility
+
+**REQ-2.8:** The system shall allow Room Hosts and Co-Hosts to kick (remove) participants:
+- Display a kick button on participant cards (visible only to host/co-hosts)
+- Show confirmation dialog before kicking a participant
+- Send PARTICIPANT_KICKED message to the kicked participant via LiveKit DataChannel
+- Remove participant from LiveKit room via `roomService.removeParticipant()`
+- Display "You have been removed from the meeting" overlay to the kicked participant
+- Host cannot be kicked from the meeting
+
+**REQ-2.9:** The system shall allow Room Hosts to manage Co-Host privileges:
+- Host can grant co-host role to any participant via the Collaboration Settings modal
+- Host can revoke co-host role from any co-host
+- Co-host status is persisted in the database (RoomParticipant.role = "CO_HOST")
+- Co-host changes are broadcast to all participants via LiveKit DataChannel
+- Co-hosts have elevated permissions: can manage whiteboard/notes access, kick participants, end meeting, lower hands
+
+**REQ-2.10:** The system shall support room password management during active sessions:
+- Host can set, change, or remove room password via the Collaboration Settings modal
+- Password validation is performed via `/api/livekit/token` endpoint during join
+- Host is exempt from password validation when joining their own room
+- Password must be at least 4 characters when set
+- Password is stored securely using bcrypt hashing in the database
+- API endpoints: `GET /api/room/[roomId]/password` (check if password exists), `PUT /api/room/[roomId]/password` (set/update/remove password)
+
 #### Module 3: Real-time Collaboration (LiveKit Integration)
 
 **REQ-3.1:** The system shall connect to LiveKit server for real-time video/audio communication:
@@ -107,6 +150,10 @@ Functional requirements are organized into logical modules that represent distin
 - Display each participant with: Clerk profile image (or initial avatar), name, "(You)" indicator for local participant
 - Show mic/video status icons (green for enabled, red/gray for disabled)
 - Highlight active speaker with violet border and "Speaking" label
+- Display hand raise indicator (hand icon) for participants with raised hands
+- Show role badges (Host, Co-Host) on participant cards
+- Display kick button on participant cards for host/co-hosts (with confirmation dialog)
+- Show hand raise queue panel for host/co-hosts with "Lower Hand" and "Lower All" actions
 - Support collapse/expand functionality
 
 **REQ-3.5:** The Video Feeds View shall:
@@ -302,7 +349,7 @@ UC_ChangeName ..> UC_Profile : <<extend>>
 
 ### 2.2.3. Detailed Use Case: Join Room
 
-This diagram breaks down the "Join Room" use case from the system-level diagram, showing the detailed interactions for room creation, joining, and real-time collaboration features.
+This diagram breaks down the "Join Room" use case from the system-level diagram, showing the detailed interactions for room creation, joining, password management, and real-time collaboration features.
 
 ```plantuml
 @startuml
@@ -321,8 +368,10 @@ rectangle "JOIN ROOM SUBSYSTEM" {
     usecase "Create Room" as UC_CreateRoom
     usecase "Join Room" as UC_JoinRoom
     usecase "Join via Code" as UC_JoinCode
+    usecase "Validate Password" as UC_ValidatePassword
     usecase "Manage Room" as UC_ManageRoom
     usecase "Manage Permissions" as UC_ManagePermissions
+    usecase "Manage Room Password" as UC_ManagePassword
     usecase "Participate in Meeting" as UC_Participate
     usecase "Share Screen" as UC_ScreenShare
     usecase "Use Whiteboard" as UC_Whiteboard
@@ -333,6 +382,7 @@ rectangle "JOIN ROOM SUBSYSTEM" {
 RoomHost --> UC_CreateRoom
 RoomHost --> UC_ManageRoom
 RoomHost --> UC_ManagePermissions
+RoomHost --> UC_ManagePassword
 RoomHost --> UC_JoinRoom
 RoomHost --> UC_Participate
 
@@ -349,7 +399,9 @@ UC_ManageRoom ..> UC_Auth : <<include>>
 UC_Participate ..> UC_Auth : <<include>>
 
 UC_JoinCode ..> UC_JoinRoom : <<extend>>
+UC_ValidatePassword ..> UC_JoinRoom : <<extend>>
 UC_ManagePermissions ..> UC_ManageRoom : <<extend>>
+UC_ManagePassword ..> UC_ManageRoom : <<extend>>
 
 UC_JoinRoom --> UC_Participate
 UC_Participate --> UC_ScreenShare
@@ -422,10 +474,10 @@ Four use cases are detailed below to illustrate the system's core functionality 
 |---------------|-----------------|
 | **Use Case Name** | Join Room |
 | **Actor** | Participant (specialized User) |
-| **Description** | A user joins an existing meeting room by entering a room code or navigating directly to `/room/[roomCode]`. The system validates room existence and status via `/api/room/validate`, displays the pre-join screen with camera/mic preview, requests a LiveKit token, and connects to the LiveKit room for real-time video/audio communication. |
+| **Description** | A user joins an existing meeting room by entering a room code or navigating directly to `/room/[roomCode]`. The system validates room existence and status via `/api/room/validate`, displays the pre-join screen with camera/mic preview, validates room password if required, requests a LiveKit token, and connects to the LiveKit room for real-time video/audio communication. |
 | **Preconditions** | 1. User is authenticated via Clerk<br>2. Room with the provided code exists in the database<br>3. Room status is WAITING or ACTIVE (not ENDED)<br>4. Room `isActive` flag is true<br>5. LiveKit server is running and accessible |
 | **Postconditions** | 1. User is connected to LiveKit room with video/audio streams<br>2. User's data is synced to database via token API (upsert)<br>3. RoomParticipant record is created via LiveKit webhook<br>4. Room status transitions to ACTIVE (via `room_started` webhook)<br>5. User can see other participants and interact with room features |
-| **Flow** | **Main Flow:**<br>1. User navigates to `/room/[roomCode]` (via dashboard or direct link)<br>2. System calls `/api/room/validate?code=[roomCode]` to check room status<br>3. API validates: room exists, status is not ENDED, isActive is true<br>4. API performs stale room cleanup (checks LiveKit room existence)<br>5. System displays pre-join screen with video preview and media controls<br>6. If room has password and user is not host, system shows password input<br>7. User optionally toggles microphone and camera<br>8. User clicks "Join Room" button<br>9. System calls `/api/livekit/token` with roomName<br>10. Token API upserts user data to database (clerkId, name, email, imageUrl)<br>11. Token API generates LiveKit access token with user identity and metadata<br>12. Client connects to LiveKit room using token<br>13. LiveKit sends `room_started` webhook (if first participant) → Room status = ACTIVE<br>14. LiveKit sends `participant_joined` webhook → RoomParticipant record created<br>15. System loads room data: permissions via `/api/room/[roomId]/permissions`, chat history<br>16. System initializes collaboration features based on permissions (whiteboard, notes)<br>17. System displays main room interface with participants sidebar, video feeds, and controls<br><br>**Alternative Flow 3a:** If room does not exist:<br>3a.1. API returns 404 with code "ROOM_NOT_FOUND"<br>3a.2. System displays "Room Not Found" error page<br>3a.3. User can navigate back to dashboard<br><br>**Alternative Flow 3b:** If room has ended:<br>3b.1. API returns 410 with code "ROOM_ENDED"<br>3b.2. System displays "Meeting Ended" error page<br>3b.3. User can navigate back to dashboard<br><br>**Alternative Flow 4a:** If stale room detected (ACTIVE but no LiveKit room for 5+ minutes):<br>4a.1. API marks room as ENDED and returns 410<br>4a.2. Continue with Alternative Flow 3b |
+| **Flow** | **Main Flow:**<br>1. User navigates to `/room/[roomCode]` (via dashboard or direct link)<br>2. System calls `/api/room/validate?code=[roomCode]` to check room status<br>3. API validates: room exists, status is not ENDED, isActive is true<br>4. API performs stale room cleanup (checks LiveKit room existence)<br>5. API returns room info including `hasPassword` flag<br>6. System displays pre-join screen with video preview and media controls<br>7. If room has password and user is not host, system shows password input field<br>8. User optionally toggles microphone and camera<br>9. User enters password (if required) and clicks "Join Room" button<br>10. System calls `/api/livekit/token` with roomName and password (if provided)<br>11. Token API validates password using bcrypt comparison (host is exempt)<br>12. Token API upserts user data to database (clerkId, name, email, imageUrl)<br>13. Token API generates LiveKit access token with user identity and metadata<br>14. Client connects to LiveKit room using token<br>15. LiveKit sends `room_started` webhook (if first participant) → Room status = ACTIVE<br>16. LiveKit sends `participant_joined` webhook → RoomParticipant record created<br>17. System loads room data: permissions via `/api/room/[roomId]/permissions`, chat history<br>18. System initializes collaboration features based on permissions (whiteboard, notes)<br>19. System displays main room interface with participants sidebar, video feeds, and controls<br><br>**Alternative Flow 3a:** If room does not exist:<br>3a.1. API returns 404 with code "ROOM_NOT_FOUND"<br>3a.2. System displays "Room Not Found" error page<br>3a.3. User can navigate back to dashboard<br><br>**Alternative Flow 3b:** If room has ended:<br>3b.1. API returns 410 with code "ROOM_ENDED"<br>3b.2. System displays "Meeting Ended" error page<br>3b.3. User can navigate back to dashboard<br><br>**Alternative Flow 4a:** If stale room detected (ACTIVE but no LiveKit room for 5+ minutes):<br>4a.1. API marks room as ENDED and returns 410<br>4a.2. Continue with Alternative Flow 3b<br><br>**Alternative Flow 11a:** If password is required but not provided:<br>11a.1. Token API returns 401 with code "PASSWORD_REQUIRED"<br>11a.2. System displays password input field<br>11a.3. User enters password and retries<br><br>**Alternative Flow 11b:** If password is incorrect:<br>11b.1. Token API returns 401 with code "INVALID_PASSWORD"<br>11b.2. System displays "Incorrect password" error message<br>11b.3. User can retry with correct password or cancel |
 
 #### Use Case 2: Collaborate on Whiteboard
 
@@ -534,7 +586,7 @@ endif
 
 ### 2.3.2. Use Case 1: Join Room
 
-This activity diagram illustrates the room joining workflow based on the "Join Room" use case specification.
+This activity diagram illustrates the room joining workflow based on the "Join Room" use case specification, including password validation.
 
 ```plantuml
 @startuml
@@ -576,15 +628,36 @@ if (Room Code Valid?) then (No)
     :User can retry or cancel;
     stop
 else (Yes)
-    if (Room Requires Password?) then (Yes)
-        |System|
-        :System prompts for password;
-        
+endif
+
+|System|
+:Display pre-join screen with\nvideo preview and media controls;
+
+if (Room Has Password AND User is Not Host?) then (Yes)
+    |System|
+    :Display password input field;
+    
+    |Participant|
+    :User enters password;
+else (No)
+endif
+
+|Participant|
+:User optionally toggles\nmicrophone and camera;
+:User clicks "Join Room" button;
+
+|System|
+:Call /api/livekit/token with\nroomName and password;
+
+if (Password Required?) then (Yes)
+    if (Password Provided?) then (No)
         |Participant|
-        :User enters password;
-        
+        :System displays\n"Password required" error;
+        :User enters password and retries;
+        stop
+    else (Yes)
         |System|
-        :System validates password;
+        :Validate password using bcrypt;
         
         if (Password Correct?) then (No)
             |Participant|
@@ -592,24 +665,14 @@ else (Yes)
             :User can retry password entry\nor cancel;
             stop
         else (Yes)
-            |System|
-            :Create or retrieve active\nmeeting session for the room;
         endif
-    else (No)
-        |System|
-        :Create or retrieve active\nmeeting session for the room;
     endif
+else (No)
 endif
-
-:Display pre-join screen with\nvideo preview and media controls;
-
-|Participant|
-:User optionally toggles\nmicrophone and camera;
-:User clicks "Join Room" button;
 
 |System|
 partition Parallel {
-    :Create SessionParticipant record\nlinking user to session;
+    :Create/update RoomParticipant record\nlinking user to session;
     :Initialize user's media streams\n(via LiveKit);
 }
 
@@ -872,7 +935,7 @@ sequenceDiagram
 
 ### 2.4.2. Use Case 1: Join Room
 
-This sequence diagram shows the room joining flow including room validation, LiveKit token generation, and real-time connection establishment.
+This sequence diagram shows the room joining flow including room validation, password verification, LiveKit token generation, and real-time connection establishment.
 
 ```mermaid
 sequenceDiagram
@@ -912,8 +975,31 @@ sequenceDiagram
         end
     end
     
+    alt Room Has Password (non-host)
+        Client->>Participant: Show password input field
+        Participant->>Client: Enter password
+    end
+    
     Participant->>Client: Toggle mic/camera, click "Join Room"
-    Client->>TokenAPI: POST /api/livekit/token {roomName}
+    Client->>TokenAPI: POST /api/livekit/token {roomName, password}
+    
+    TokenAPI->>DB: Query room by code
+    DB->>TokenAPI: Return room with hashed password
+    
+    alt Password Required (non-host)
+        alt No Password Provided
+            TokenAPI->>Client: 401 {code: "PASSWORD_REQUIRED"}
+            Client->>Participant: Show password input field
+        else Password Provided
+            TokenAPI->>TokenAPI: bcrypt.compare(password, hashedPassword)
+            alt Invalid Password
+                TokenAPI->>Client: 401 {code: "INVALID_PASSWORD"}
+                Client->>Participant: Display "Incorrect password" error
+            else Valid Password
+                TokenAPI->>TokenAPI: Continue with token generation
+            end
+        end
+    end
     
     TokenAPI->>DB: Upsert user (clerkId, name, email, imageUrl)
     DB->>TokenAPI: Return user
@@ -934,7 +1020,7 @@ sequenceDiagram
     Note over Client: Load room data (chat, permissions)
     Client->>DB: GET /api/room/[roomId]/permissions
     DB->>Client: Return whiteboard/notes permissions
-    Client->>DB: GET /api/room/[roomId]/chat (load chat history)
+    Client->>DB: GET /api/chat?roomId=[roomId]
     DB->>Client: Return chat messages
     Client->>Client: Initialize collaboration features with permissions
 ```
@@ -1075,7 +1161,7 @@ sequenceDiagram
 
 **Key Interaction Patterns:**
 1. **Authentication Flow:** User → Client → Server → Clerk → Server → Client → User
-2. **Room Joining:** Includes validation, password check, loading permissions/chat, and session initialization
+2. **Room Joining:** Includes validation, password verification (bcrypt comparison, host exempt), loading permissions/chat, and session initialization
 3. **Real-time Whiteboard:** Optimistic updates with LiveKit DataChannel broadcasting and timestamp-based conflict resolution
 4. **Personal Notes:** Auto-save with debouncing, per-user storage in database
 5. **Session History:** Query sessions by user participation, load session details with whiteboard/notes
@@ -1289,7 +1375,7 @@ classDiagram
         +String code (unique, 6-char)
         +String name
         +String? description
-        +String? password
+        +String? password (bcrypt hashed)
         +Boolean isActive
         +RoomStatus status
         +Int maxParticipants
@@ -1334,7 +1420,7 @@ classDiagram
     
     class RoomNote {
         +String id (PK, ObjectId)
-        +Json content
+        +Json content (Tiptap JSONContent)
         +String clerkUserId
         +String roomId (FK)
         +DateTime createdAt
@@ -1388,7 +1474,7 @@ The **Room** entity represents a meeting room created by a Room Host. Each room 
 - `code`: Unique 6-character room code for joining (e.g., "abc123")
 - `name`: Meeting room name (required, set during creation)
 - `description`: Optional room description
-- `password`: Optional room password for access control
+- `password`: Optional room password for access control (bcrypt hashed, minimum 4 characters when set). Host can set/change/remove password during active session via `/api/room/[roomId]/password` endpoint. Host is exempt from password validation when joining.
 - `isActive`: Boolean flag indicating if room is accessible
 - `status`: Room lifecycle status (WAITING, ACTIVE, ENDED)
 - `maxParticipants`: Maximum allowed participants (default: 50)

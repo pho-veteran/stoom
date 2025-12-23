@@ -13,8 +13,6 @@ function isValidPermissionLevel(value: unknown): value is PermissionLevel {
 /**
  * PATCH /api/room/[roomId]/permissions
  * Update whiteboard/notes permissions and allowed users for a room
- * 
- * Requirements: 8.6, 8.7
  */
 export async function PATCH(
   request: NextRequest,

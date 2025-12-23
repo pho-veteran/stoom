@@ -17,7 +17,6 @@ async function getRoom(roomIdOrCode: string) {
 /**
  * POST /api/room/[roomId]/notes
  * Save personal notes for a user in a room
- * Notes are personal per-user (not collaborative)
  */
 export async function POST(
   request: NextRequest,

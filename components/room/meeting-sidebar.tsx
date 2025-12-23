@@ -868,7 +868,7 @@ function CollapsedSidebar({
       </div>
       
       {/* Hand raise count badge */}
-      {handRaiseCount && handRaiseCount > 0 && (
+      {(handRaiseCount ?? 0) > 0 && (
         <div className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
           <span className="text-xs font-bold text-amber-600">{handRaiseCount}</span>
         </div>
@@ -1032,7 +1032,6 @@ function EndMeetingModal({
 
 /**
  * KickConfirmationDialog - Confirmation dialog for kicking a participant
- * Requirements: 2.2
  */
 function KickConfirmationDialog({
   open,

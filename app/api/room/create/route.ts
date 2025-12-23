@@ -55,8 +55,7 @@ export async function POST(request: NextRequest) {
     // Hash password if provided
     let hashedPassword: string | null = null
     if (password) {
-      const salt = await bcrypt.genSalt(10)
-      hashedPassword = await bcrypt.hash(password, salt)
+      hashedPassword = await bcrypt.hash(password, 10)
     }
 
     // Create room

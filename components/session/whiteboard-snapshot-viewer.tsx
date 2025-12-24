@@ -6,8 +6,6 @@
  * Renders a saved tldraw snapshot with full editing capability.
  * Changes are NOT persisted to database - lost on reload.
  * Users can freely edit, annotate, and export the whiteboard.
- * 
- * Requirements: 3.3 - Display saved whiteboard snapshot with edit/export capability
  */
 
 import type { TLStoreSnapshot } from "tldraw";
@@ -24,9 +22,6 @@ export interface WhiteboardSnapshotViewerProps {
 /**
  * WhiteboardSnapshotViewer renders a saved tldraw snapshot with full editing capability.
  * Users can edit, annotate, and export - but changes are NOT saved to database.
- * 
- * Requirements: 3.3 - WHEN a user views a past session THEN the Stoom system
- * SHALL display the saved whiteboard snapshot with edit/export capability
  */
 export function WhiteboardSnapshotViewer({
   snapshot,

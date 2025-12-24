@@ -5,8 +5,6 @@
  * 
  * Renders saved Tiptap content with editing capability for
  * viewing and modifying past session notes.
- * 
- * Requirements: 3.4 - Display saved notes content with edit capability
  */
 
 import { useCallback } from "react";

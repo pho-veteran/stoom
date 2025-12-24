@@ -3,8 +3,6 @@
  * 
  * This module defines all message types, permission types, and sync interfaces
  * used for real-time collaboration via LiveKit data channels.
- * 
- * Requirements: 6.1, 6.2, 6.3, 8.1, 8.2
  */
 
 import type { TLStoreSnapshot, TLRecord } from 'tldraw';
@@ -12,7 +10,7 @@ import type { JSONContent } from '@tiptap/react';
 import type { Step } from '@tiptap/pm/transform';
 
 // ============================================================================
-// Permission Types (Requirements: 8.1, 8.2)
+// Permission Types
 // ============================================================================
 
 /**
@@ -92,7 +90,7 @@ export interface NotesSyncMessage {
 }
 
 // ============================================================================
-// Presence Messages (Requirements: 7.1, 7.2)
+// Presence Messages
 // ============================================================================
 
 /**
@@ -148,7 +146,7 @@ export interface LocalPresence {
 }
 
 // ============================================================================
-// Permission Sync Messages (Requirements: 8.6, 8.7)
+// Permission Sync Messages
 // ============================================================================
 
 /**
@@ -466,8 +464,6 @@ function validateSaveStatusMessage(msg: Record<string, unknown>): boolean {
 
 /**
  * Serialize a collaboration message to Uint8Array for data channel transmission
- * 
- * Requirements: 6.1, 6.2, 6.3
  */
 export function serializeMessage(message: CollaborationMessage): Uint8Array {
   const jsonString = JSON.stringify(message);
@@ -478,7 +474,6 @@ export function serializeMessage(message: CollaborationMessage): Uint8Array {
  * Deserialize a Uint8Array from data channel to a collaboration message
  * Validates the message structure before returning
  * 
- * Requirements: 6.1, 6.2, 6.3
  * @throws {MessageValidationError} if the message is invalid
  */
 export function deserializeMessage(data: Uint8Array): CollaborationMessage {
@@ -494,8 +489,6 @@ export function deserializeMessage(data: Uint8Array): CollaborationMessage {
 
 /**
  * Route a collaboration message to the appropriate handler
- * 
- * Requirements: 6.3
  */
 export function routeMessage(
   message: CollaborationMessage,

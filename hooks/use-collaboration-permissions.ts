@@ -6,8 +6,6 @@
  * Provides permission state management for whiteboard and notes collaboration.
  * Handles grant/revoke access functions for hosts/co-hosts and syncs permission changes
  * via data channel. Persists permissions to database.
- * 
- * Requirements: 8.6, 8.7
  */
 
 import { useCallback, useState, useEffect, useRef } from "react";
@@ -170,7 +168,6 @@ export function useCollaborationPermissions(
 
   /**
    * Update permissions (host or co-host)
-   * Requirements: 8.1, 8.2
    */
   const updatePermissions = useCallback(
     async (newPermissions: Partial<CollaborationPermissions>) => {
@@ -223,7 +220,6 @@ export function useCollaborationPermissions(
 
   /**
    * Grant whiteboard access to a user (host or co-host)
-   * Requirements: 8.6
    */
   const grantWhiteboardAccess = useCallback(
     async (targetUserId: string) => {
@@ -264,7 +260,6 @@ export function useCollaborationPermissions(
 
   /**
    * Revoke whiteboard access from a user (host or co-host)
-   * Requirements: 8.7
    */
   const revokeWhiteboardAccess = useCallback(
     async (targetUserId: string) => {
@@ -303,7 +298,6 @@ export function useCollaborationPermissions(
 
   /**
    * Grant notes access to a user (host or co-host)
-   * Requirements: 8.6
    */
   const grantNotesAccess = useCallback(
     async (targetUserId: string) => {
@@ -341,7 +335,6 @@ export function useCollaborationPermissions(
 
   /**
    * Revoke notes access from a user (host or co-host)
-   * Requirements: 8.7
    */
   const revokeNotesAccess = useCallback(
     async (targetUserId: string) => {

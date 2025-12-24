@@ -5,8 +5,6 @@
  * 
  * Manages hand raise state for meeting participants using LiveKit data channels.
  * Provides real-time synchronization of hand raise states across all participants.
- * 
- * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.2, 2.4, 2.5, 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 6.1, 6.3, 7.3, 7.4
  */
 
 import { useState, useCallback, useEffect, useMemo } from "react";
@@ -67,8 +65,6 @@ export interface UseHandRaiseReturn {
 
 /**
  * Hook for managing hand raise state in a meeting
- * 
- * Requirements: 1.1, 1.2, 2.2, 2.4
  */
 export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -92,7 +88,6 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
   const isHandRaised = handRaiseMap.has(participantId);
 
   // Derive ordered queue from map (sorted by raisedAt timestamp)
-  // Requirements: 2.2
   const handRaiseQueue = useMemo(() => {
     const queue = Array.from(handRaiseMap.values());
     // Sort by timestamp ascending (earliest first), then by participantId for deterministic ordering
@@ -106,17 +101,14 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
   }, [handRaiseMap]);
 
   // Derive count of raised hands
-  // Requirements: 2.4
   const handRaiseCount = handRaiseQueue.length;
 
   /**
    * Broadcast a hand raise message to all participants
-   * Requirements: 7.4
    */
   const broadcastMessage = useCallback(
     async (message: HandRaiseMessage) => {
       if (!room) {
-        // Requirements: 7.4 - Network error feedback
         toast.error("Unable to send hand raise action - not connected to meeting");
         return;
       }
@@ -129,7 +121,6 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
         });
       } catch (error) {
         console.error("Failed to broadcast hand raise message:", error);
-        // Requirements: 7.4 - Network error feedback
         toast.error("Failed to send hand raise action - network error");
       }
     },
@@ -138,14 +129,12 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
 
   /**
    * Toggle hand raise state for current participant
-   * Requirements: 1.1, 1.3, 1.4, 1.5, 7.1, 7.2
    */
   const toggleHandRaise = useCallback(() => {
     if (!room) return;
 
     if (isHandRaised) {
       // Lower hand
-      // Requirements: 1.3, 1.5, 7.2
       setHandRaiseMap((prev) => {
         const next = new Map(prev);
         next.delete(participantId);
@@ -159,7 +148,6 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
       broadcastMessage(message);
     } else {
       // Raise hand
-      // Requirements: 1.1, 1.2, 1.4, 7.1
       const timestamp = Date.now();
       const state: HandRaiseState = {
         participantId,
@@ -193,7 +181,6 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
 
   /**
    * Lower a specific participant's hand (host/co-host only)
-   * Requirements: 3.1, 3.2, 3.3
    */
   const lowerParticipantHand = useCallback(
     (targetParticipantId: string) => {
@@ -215,7 +202,6 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
 
   /**
    * Lower all raised hands (host/co-host only)
-   * Requirements: 4.1, 4.2, 4.3
    */
   const lowerAllHands = useCallback(() => {
     if (!room || !canManageHands) return;
@@ -230,7 +216,6 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
 
   /**
    * Handle incoming hand raise messages
-   * Requirements: 1.4, 1.5, 2.5, 3.3, 4.3, 7.3
    */
   useEffect(() => {
     if (!room) return;
@@ -265,7 +250,7 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
             return next;
           });
 
-          // Requirements: 2.5 - Show notification to hosts/co-hosts only
+          // Show notification to hosts/co-hosts only
           if (canManageHands) {
             toast.info(`${message.payload.participantName || "A participant"} raised their hand`);
           }
@@ -277,7 +262,7 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
             return next;
           });
 
-          // Requirements: 7.3 - Show notification to affected participant when host lowers their hand
+          // Show notification to affected participant when host lowers their hand
           // Check if this is a host-initiated lower (targetParticipantId is set and sender is different)
           if (
             message.payload.targetParticipantId === participantId &&
@@ -372,7 +357,6 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
 
   /**
    * Clean up hand raise state when participant leaves
-   * Requirements: 6.1
    */
   useEffect(() => {
     if (!room) return;
@@ -394,7 +378,6 @@ export function useHandRaise(options: UseHandRaiseOptions): UseHandRaiseReturn {
 
   /**
    * Clean up all hand raise state when meeting ends
-   * Requirements: 6.3
    */
   useEffect(() => {
     if (!room) return;

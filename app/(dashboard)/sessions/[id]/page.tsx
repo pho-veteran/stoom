@@ -312,7 +312,7 @@ export default function SessionDetailPage({
             </div>
           </div>
 
-          {/* Collaboration Content - Whiteboard & Notes (Requirements: 3.3, 3.4) */}
+          {/* Collaboration Content - Whiteboard & Notes */}
           {session.collaboration && (
             <div className="rounded-xl border-2 border-border bg-card p-5 mb-6">
               <Tabs defaultValue="whiteboard" className="w-full">

@@ -3,8 +3,6 @@
  * 
  * This module provides utility functions for checking user permissions
  * on collaborative features (whiteboard and notes).
- * 
- * Requirements: 8.3, 8.4, 8.5
  */
 
 import type { PermissionLevel, UserRole } from './collaboration-types';
@@ -78,8 +76,6 @@ export function canManageCoHosts(isHost: boolean): boolean {
  * - 'open': Everyone can edit
  * - 'restricted': Only host, co-hosts, and users in allowedUsers list can edit
  * 
- * Requirements: 8.3, 8.4
- * 
  * @param userId - The ID of the user to check
  * @param isHost - Whether the user is the room host
  * @param permissionLevel - The permission level for the feature
@@ -116,8 +112,6 @@ export function canUserEdit(
  * 
  * Permission rules:
  * - 'open' or 'restricted': Everyone can view
- * 
- * Requirements: 8.5
  * 
  * @param permissionLevel - The permission level for the feature
  * @returns true if the feature is visible, false otherwise

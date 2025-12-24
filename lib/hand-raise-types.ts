@@ -3,8 +3,6 @@
  * 
  * This module defines all message types and interfaces used for the hand raise
  * feature in real-time meetings via LiveKit data channels.
- * 
- * Requirements: 1.1, 1.2, 1.4
  */
 
 // ============================================================================
@@ -13,8 +11,6 @@
 
 /**
  * Hand raise state for a single participant
- * 
- * Requirements: 1.1, 1.2
  */
 export interface HandRaiseState {
   participantId: string;
@@ -29,8 +25,6 @@ export type HandRaiseAction = 'raise' | 'lower' | 'lower-all' | 'sync-request' |
 
 /**
  * Hand raise message for LiveKit data channel
- * 
- * Requirements: 1.4
  */
 export interface HandRaiseMessage {
   type: 'hand-raise';
@@ -61,8 +55,6 @@ export class HandRaiseValidationError extends Error {
 
 /**
  * Validate that a message has the required structure for a hand raise message
- * 
- * Requirements: 1.4
  * 
  * @param message - The message to validate
  * @returns true if the message is a valid HandRaiseMessage
@@ -123,8 +115,6 @@ export function validateHandRaiseMessage(message: unknown): message is HandRaise
 /**
  * Serialize a hand raise message to Uint8Array for data channel transmission
  * 
- * Requirements: 1.4
- * 
  * @param message - The hand raise message to serialize
  * @returns Uint8Array representation of the message
  */
@@ -136,8 +126,6 @@ export function serializeHandRaiseMessage(message: HandRaiseMessage): Uint8Array
 /**
  * Deserialize a Uint8Array from data channel to a hand raise message
  * Validates the message structure before returning
- * 
- * Requirements: 1.4
  * 
  * @param data - The Uint8Array data to deserialize
  * @returns The deserialized and validated HandRaiseMessage
@@ -214,8 +202,6 @@ export function isLowerAllAction(action: HandRaiseAction): action is 'lower-all'
 /**
  * Create a raise hand message
  * 
- * Requirements: 1.1, 1.4
- * 
  * @param participantId - The ID of the participant raising their hand
  * @param participantName - The name of the participant
  * @param senderId - The ID of the sender (should match participantId)
@@ -241,8 +227,6 @@ export function createRaiseHandMessage(
 /**
  * Create a lower hand message (self-initiated)
  * 
- * Requirements: 1.3, 1.4
- * 
  * @param participantId - The ID of the participant lowering their hand
  * @param senderId - The ID of the sender (should match participantId)
  * @returns A HandRaiseMessage for lowering a hand
@@ -264,8 +248,6 @@ export function createLowerHandMessage(
 
 /**
  * Create a lower hand message (host-initiated)
- * 
- * Requirements: 3.1, 3.3
  * 
  * @param targetParticipantId - The ID of the participant whose hand is being lowered
  * @param senderId - The ID of the host/co-host lowering the hand
@@ -289,8 +271,6 @@ export function createHostLowerHandMessage(
 
 /**
  * Create a lower all hands message
- * 
- * Requirements: 4.1, 4.3
  * 
  * @param senderId - The ID of the host/co-host lowering all hands
  * @returns A HandRaiseMessage for lowering all hands

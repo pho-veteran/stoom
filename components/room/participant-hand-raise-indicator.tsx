@@ -5,8 +5,6 @@
  * 
  * Displays a hand icon and queue position badge when a participant has their hand raised.
  * Uses accent color for visibility.
- * 
- * Requirements: 2.1, 2.3
  */
 
 import { Hand } from "lucide-react";

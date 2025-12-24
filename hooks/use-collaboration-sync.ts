@@ -5,8 +5,6 @@
  * 
  * Provides real-time synchronization for whiteboard and notes collaboration
  * using LiveKit data channels.
- * 
- * Requirements: 6.1, 6.2, 6.3
  */
 
 import { useCallback, useEffect, useRef } from "react";
@@ -84,7 +82,6 @@ export function useCollaborationSync(
 
   /**
    * Send whiteboard update to all participants
-   * Requirements: 6.1
    */
   const sendWhiteboardUpdate = useCallback(
     (changes: TLRecord[], removedIds?: string[]) => {
@@ -130,7 +127,6 @@ export function useCollaborationSync(
 
   /**
    * Send notes update to all participants
-   * Requirements: 6.2
    */
   const sendNotesUpdate = useCallback(
     (operations: Step[]) => {
@@ -175,7 +171,6 @@ export function useCollaborationSync(
 
   /**
    * Send presence update
-   * Requirements: 7.1, 7.2
    */
   const sendPresence = useCallback(
     (presence: LocalPresence) => {
@@ -270,7 +265,6 @@ export function useCollaborationSync(
 
   /**
    * Clean up stale presence entries (older than PRESENCE_TIMEOUT_MS)
-   * Requirements: 7.3
    */
   const cleanupStalePresence = useCallback(() => {
     const now = Date.now();
@@ -313,7 +307,6 @@ export function useCollaborationSync(
 
   /**
    * Handle incoming data channel messages
-   * Requirements: 6.3
    */
   useEffect(() => {
     if (!room) {

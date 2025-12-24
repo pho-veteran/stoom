@@ -24,8 +24,6 @@ export interface HandRaiseControlsProps {
  * 
  * Displays host controls for lowering a participant's raised hand.
  * Only visible to hosts/co-hosts when the participant has their hand raised.
- * 
- * Requirements: 3.1
  */
 export function HandRaiseControls({
   participantId,

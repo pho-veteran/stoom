@@ -8,8 +8,6 @@
  * 
  * Note: This component is always mounted (hidden via CSS when not visible)
  * to preserve state. No localStorage/sessionStorage needed for panel toggles.
- * 
- * Requirements: 1.1, 1.2, 1.3, 4.1, 7.1, 8.8
  */
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
@@ -157,7 +155,6 @@ function createAssetStore(roomId: string): TLAssetStore {
 
 /**
  * Apply remote changes to the editor with timestamp-based conflict resolution
- * Requirements: 1.3, 6.4
  * 
  * Uses last-write-wins strategy: only applies changes if their timestamp
  * is newer than the last known timestamp for that record.
@@ -190,7 +187,6 @@ function applyRemoteChanges(
       if (record === null) continue;
       
       // Check if this update should be applied based on timestamp (last-write-wins)
-      // Requirement: 6.4
       if (!conflictResolver.shouldApplyUpdate(record.id, timestamp)) {
         // Skip this record - we have a newer version
         continue;
@@ -212,7 +208,6 @@ function applyRemoteChanges(
 
 /**
  * Apply a full snapshot to the editor
- * Requirements: 1.4
  */
 function applySnapshot(editor: Editor, snapshot: TLStoreSnapshot): void {
   try {
@@ -230,13 +225,6 @@ function applySnapshot(editor: Editor, snapshot: TLStoreSnapshot): void {
 
 /**
  * Whiteboard component with tldraw integration
- * 
- * Requirements:
- * - 1.1: Display tldraw whiteboard canvas when toggled
- * - 1.2: Broadcast drawing operations to all participants within 100ms
- * - 1.3: Render updates from other participants immediately
- * - 4.1: Provide pen, highlighter, eraser, and shape tools
- * - 8.8: Display in read-only mode for users without edit permission
  */
 
 /**
@@ -298,7 +286,6 @@ export function Whiteboard({
   const [isLoadingDb, setIsLoadingDb] = useState(true);
   
   // Conflict resolver for timestamp-based last-write-wins resolution
-  // Requirement: 6.4
   const conflictResolverRef = useRef<ConflictResolver>(new ConflictResolver());
   
   // Store sendWhiteboardSnapshot in a ref to avoid circular dependency
@@ -351,7 +338,6 @@ export function Whiteboard({
 
   /**
    * Handle whiteboard updates from other participants
-   * Requirements: 1.3, 6.4
    * Using refs to keep callback stable and avoid listener leaks
    */
   const handleWhiteboardUpdate = useCallback((message: WhiteboardSyncMessage) => {
@@ -366,7 +352,7 @@ export function Whiteboard({
     try {
       if (message.action === "update") {
         // Apply incremental changes with timestamp-based conflict resolution
-        // Requirement: 6.4 - Uses last-write-wins strategy
+        // Uses last-write-wins strategy
         if (message.payload.changes && message.payload.changes.length > 0) {
           applyRemoteChanges(
             editor,
@@ -488,7 +474,6 @@ export function Whiteboard({
     editor.updateInstanceState({ isReadonly: readOnly });
 
     // Listen for store changes to broadcast updates
-    // Requirements: 1.2, 6.4
     const handleStoreChange = (info: TLStoreEventInfo) => {
       // Don't broadcast changes we're applying from remote
       if (isApplyingRemoteChanges.current) return;
@@ -504,12 +489,12 @@ export function Whiteboard({
         // Collect added and updated records
         for (const record of Object.values(info.changes.added)) {
           changes.push(record);
-          // Record local timestamp for conflict resolution (Requirement: 6.4)
+          // Record local timestamp for conflict resolution
           conflictResolverRef.current.recordUpdate(record.id, timestamp);
         }
         for (const [, to] of Object.values(info.changes.updated)) {
           changes.push(to);
-          // Record local timestamp for conflict resolution (Requirement: 6.4)
+          // Record local timestamp for conflict resolution
           conflictResolverRef.current.recordUpdate(to.id, timestamp);
         }
         
@@ -586,7 +571,6 @@ export function Whiteboard({
 
   /**
    * Request sync when joining a room with existing content
-   * Requirements: 1.4
    * 
    * Note: We always request sync when the component mounts and is ready,
    * regardless of whether we've requested before. This handles the case

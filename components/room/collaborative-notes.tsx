@@ -5,8 +5,6 @@
  * 
  * A collaborative rich-text editor using Tiptap that integrates with LiveKit
  * data channels for real-time synchronization.
- * 
- * Requirements: 2.1, 2.2, 2.3, 5.1, 5.2, 5.3, 7.2, 8.9
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -75,7 +73,6 @@ function ToolbarButton({
 
 /**
  * Formatting toolbar for the notes editor
- * Requirements: 5.1, 5.2, 5.3
  */
 function FormattingToolbar({
   editor,
@@ -88,7 +85,7 @@ function FormattingToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-border p-2">
-      {/* Text formatting - Requirements: 5.1 */}
+      {/* Text formatting */}
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         isActive={editor.isActive("bold")}
@@ -116,7 +113,7 @@ function FormattingToolbar({
 
       <div className="mx-1 h-6 w-px bg-border" />
 
-      {/* Headings - Requirements: 5.2 */}
+      {/* Headings */}
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         isActive={editor.isActive("heading", { level: 1 })}
@@ -144,7 +141,7 @@ function FormattingToolbar({
 
       <div className="mx-1 h-6 w-px bg-border" />
 
-      {/* Lists - Requirements: 5.3 */}
+      {/* Lists */}
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         isActive={editor.isActive("bulletList")}
@@ -168,15 +165,6 @@ function FormattingToolbar({
 
 /**
  * CollaborativeNotes component with Tiptap integration
- * 
- * Requirements:
- * - 2.1: Display Tiptap rich-text editor when Notes tab is selected
- * - 2.2: Broadcast text changes to all participants within 100ms
- * - 2.3: Merge updates from other participants without losing local changes
- * - 5.1: Provide bold, italic, underline, and strikethrough formatting
- * - 5.2: Provide heading levels (H1, H2, H3) and paragraph formatting
- * - 5.3: Provide bullet list and numbered list formatting
- * - 8.9: Display in read-only mode for users without edit permission
  */
 export function CollaborativeNotes({
   roomId,
@@ -202,7 +190,6 @@ export function CollaborativeNotes({
 
   /**
    * Handle notes updates from other participants
-   * Requirements: 2.3, 2.4
    */
   const handleNotesUpdate = useCallback((message: NotesSyncMessage) => {
     // Don't process our own messages
@@ -272,7 +259,6 @@ export function CollaborativeNotes({
 
   /**
    * Send presence update with current selection
-   * Requirements: 7.2
    */
   const sendSelectionPresence = useCallback((from: number, to: number) => {
     // Don't send presence if read-only or not connected
@@ -293,7 +279,6 @@ export function CollaborativeNotes({
 
   /**
    * Initialize Tiptap editor
-   * Requirements: 2.1, 5.1, 5.2, 5.3, 7.2
    */
   const editor = useEditor({
     extensions: [
@@ -336,7 +321,6 @@ export function CollaborativeNotes({
       const content = editor.getJSON();
       
       // Broadcast to other participants
-      // Requirements: 2.2
       sendNotesContent(content);
 
       // Notify parent of content change
@@ -346,7 +330,6 @@ export function CollaborativeNotes({
     },
     onSelectionUpdate: ({ editor }) => {
       // Track selection changes for presence
-      // Requirements: 7.2
       if (readOnly) return;
       
       const { from, to } = editor.state.selection;
@@ -354,7 +337,6 @@ export function CollaborativeNotes({
     },
     onFocus: ({ editor }) => {
       // Send presence when editor gains focus
-      // Requirements: 7.2
       if (readOnly) return;
       
       const { from, to } = editor.state.selection;
@@ -386,7 +368,6 @@ export function CollaborativeNotes({
 
   /**
    * Request sync when joining a room with existing content
-   * Requirements: 2.4
    */
   useEffect(() => {
     if (editor && isConnected && !hasRequestedSync.current && !initialContent) {

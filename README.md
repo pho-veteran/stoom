@@ -1,5 +1,7 @@
 # Stoom — Real-Time Video Conferencing Platform
 
+![Stoom](public/stoom-logo-wordmark.png)
+
 A full-featured video conferencing web application with collaborative whiteboard, chat, and notes — built with Next.js and LiveKit.
 
 > Academic project developed by a university student for learning and demonstration purposes.
@@ -18,7 +20,7 @@ Stoom is a browser-based video conferencing platform that enables users to host 
 - [Next.js 16](https://nextjs.org) (App Router) — React 19, TypeScript
 - Tailwind CSS, Radix UI (shadcn/ui component library)
 - [tldraw](https://tldraw.com) — collaborative whiteboard canvas
-- [Tiptap](https://tiptap.dev) — rich-text collaborative notes editor
+- [Tiptap](https://tiptap.dev) — rich-text editor for personal and collaborative notes
 
 **Authentication**
 - [Clerk](https://clerk.com) — user sign-in/sign-up and route protection
@@ -40,7 +42,8 @@ Stoom is a browser-based video conferencing platform that enables users to host 
 - Create and join password-protected meeting rooms with a unique 6-character room code
 - Real-time video and audio conferencing with active-speaker highlighting
 - Collaborative whiteboard (tldraw) with permission-based access control
-- Synchronized collaborative notes (Tiptap) shared across all participants
+- Collaborative notes (Tiptap) shared and synced across all participants in real time
+- Personal notes (Tiptap) saved privately per participant and stored to the session
 - In-room text chat via LiveKit DataChannel
 - Screen sharing support with automatic conflict resolution
 - Host and co-host role management: kick participants, lower raised hands, end meetings
@@ -68,7 +71,8 @@ docker compose up -d
 #   CLERK_SECRET_KEY                    — Clerk secret key
 #   LIVEKIT_API_KEY                     — LiveKit API key
 #   LIVEKIT_API_SECRET                  — LiveKit API secret
-#   NEXT_PUBLIC_LIVEKIT_URL             — LiveKit WebSocket URL (ws://localhost:7880)
+#   LIVEKIT_URL                         — LiveKit HTTP URL for server-side SDK (http://localhost:7880)
+#   NEXT_PUBLIC_LIVEKIT_URL             — LiveKit WebSocket URL for client (ws://localhost:7880)
 
 # 5. Run the development server
 npm run dev

@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stoom — Real-Time Video Conferencing Platform
 
-## Getting Started
+A full-featured video conferencing web application with collaborative whiteboard, chat, and notes — built with Next.js and LiveKit.
 
-First, run the development server:
+> Academic project developed by a university student for learning and demonstration purposes.
+
+---
+
+## Description
+
+Stoom is a browser-based video conferencing platform that enables users to host and join real-time meetings. It solves the need for an integrated collaboration space by combining video/audio calls, a shared whiteboard, synchronized notes, and in-room chat in a single application. Users can create password-protected rooms, manage participant roles, and review past sessions through a personal dashboard.
+
+---
+
+## Tech Stack
+
+**Frontend**
+- [Next.js 16](https://nextjs.org) (App Router) — React 19, TypeScript
+- Tailwind CSS, Radix UI (shadcn/ui component library)
+- [tldraw](https://tldraw.com) — collaborative whiteboard canvas
+- [Tiptap](https://tiptap.dev) — rich-text collaborative notes editor
+
+**Authentication**
+- [Clerk](https://clerk.com) — user sign-in/sign-up and route protection
+
+**Real-Time Communication**
+- [LiveKit](https://livekit.io) — WebRTC server for video, audio, and data channels
+- coturn — self-hosted TURN/STUN server
+
+**Database**
+- MongoDB via [Prisma ORM](https://www.prisma.io)
+
+**Infrastructure**
+- Docker Compose — orchestrates LiveKit and coturn services
+
+---
+
+## Features
+
+- Create and join password-protected meeting rooms with a unique 6-character room code
+- Real-time video and audio conferencing with active-speaker highlighting
+- Collaborative whiteboard (tldraw) with permission-based access control
+- Synchronized collaborative notes (Tiptap) shared across all participants
+- In-room text chat via LiveKit DataChannel
+- Screen sharing support with automatic conflict resolution
+- Host and co-host role management: kick participants, lower raised hands, end meetings
+- Session history dashboard displaying past meetings and saved notes/whiteboard snapshots
+
+---
+
+## Installation
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/pho-veteran/stoom.git
+cd stoom
+
+# 2. Install dependencies
+npm install
+
+# 3. Start LiveKit and TURN server
+docker compose up -d
+
+# 4. Configure environment variables
+# Create a .env file with the following values:
+#   DATABASE_URL                        — MongoDB connection string
+#   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY   — Clerk publishable key
+#   CLERK_SECRET_KEY                    — Clerk secret key
+#   LIVEKIT_API_KEY                     — LiveKit API key
+#   LIVEKIT_API_SECRET                  — LiveKit API secret
+#   NEXT_PUBLIC_LIVEKIT_URL             — LiveKit WebSocket URL (ws://localhost:7880)
+
+# 5. Run the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project Structure
 
-## Learn More
+```
+app/
+  (auth)/          — Sign-in and sign-up pages (Clerk)
+  (dashboard)/     — Dashboard and session history pages
+  (room)/          — Pre-join screen and live meeting room
+  api/             — Next.js API routes (room CRUD, LiveKit token/webhook, chat)
+components/
+  room/            — All in-room UI: stage, sidebar, toolbar, whiteboard, chat, notes
+  dashboard/       — Dashboard header and sidebar
+  session/         — Session review components (notes viewer, whiteboard snapshot)
+lib/               — Server utilities: Prisma client, LiveKit SDK helpers, permissions
+hooks/             — Custom React hooks for room state, chat, hand raise, screen share
+prisma/            — Prisma schema (MongoDB: User, Room, RoomParticipant, ChatMessage)
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Author
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Developed by **pho-veteran** as a university student project.  
+GitHub: [github.com/pho-veteran](https://github.com/pho-veteran)
